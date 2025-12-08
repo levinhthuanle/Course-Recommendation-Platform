@@ -1,0 +1,47 @@
+services:
+  # Meilisearch Search Engine
+  meilisearch:
+    image: getmeili/meilisearch:v1.6
+    container_name: course_ir_meili
+    ports:
+      - "7700:7700"
+    environment:
+      - MEILI_MASTER_KEY=masterKey123  # Thay đổi key này khi deploy thật
+      - MEILI_ENV=development
+    volumes:
+      - ./meili_data:/meili_data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7700/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # FastAPI Backend Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: course_ir_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_NAME=Course Recommendation Platform
+      - APP_VERSION=1.0.0
+      - DEBUG=false
+      - HOST=0.0.0.0
+      - PORT=8000
+      - MEILISEARCH_URL=http://meilisearch:7700
+      - MEILISEARCH_MASTER_KEY=masterKey123
+      - MEILISEARCH_INDEX_NAME=courses
+      - RESOURCES_PATH=/app/Resources
+      - BATCH_SIZE=100
+      - SEARCH_LIMIT=20
+    volumes:
+      - ./Resources:/app/Resources
+      - ./app:/app/app  # Mount code for development
+    depends_on:
+      meilisearch:
+        condition: service_healthy
+    restart: unless-stopped
