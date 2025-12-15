@@ -94,30 +94,33 @@ class SearchService:
 
         try:
             # Configure searchable attributes (order matters for ranking)
+            # course_code first for exact code searches, then title for name searches
             self.index.update_searchable_attributes(
-                ["title", "course_code", "summary", "content"]
+                ["course_code", "title", "summary", "content"]
             )
 
-            # Configure ranking rules for relevance
+            # Configure ranking rules for relevance (prioritize exactness and words)
             self.index.update_ranking_rules(
                 [
+                    "exactness",      # Exact matches rank higher
                     "words",          # Number of matched query terms
-                    "typo",           # Fewer typos is better
                     "proximity",      # Proximity of query terms
                     "attribute",      # Matches in earlier attributes rank higher
                     "sort",           # Custom sorting
-                    "exactness",      # Exact matches rank higher
+                    "typo",           # Fewer typos is better
                 ]
             )
 
-            # Configure typo tolerance
+            # Configure typo tolerance - strict to reduce noisy matches
             self.index.update_typo_tolerance(
                 {
                     "enabled": True,
                     "minWordSizeForTypos": {
-                        "oneTypo": self.settings.typo_tolerance_min_word_size_for_typos_one,
-                        "twoTypos": self.settings.typo_tolerance_min_word_size_for_typos_two,
+                        "oneTypo": 5,   # Require at least 5 chars for 1 typo
+                        "twoTypos": 9,  # Require at least 9 chars for 2 typos
                     },
+                    # Disable typos on course codes entirely
+                    "disableOnAttributes": ["course_code", "title"],
                 }
             )
 
@@ -190,6 +193,8 @@ class SearchService:
                 "attributesToRetrieve": ["id", "course_code", "title", "summary"],
                 "attributesToHighlight": ["title", "summary"],
                 "showMatchesPosition": False,
+                # Require all query terms to be present to reduce noisy single-term matches
+                "matchingStrategy": "all",
             }
 
             if filters:
