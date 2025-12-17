@@ -5,17 +5,35 @@ type Result = {
   summary?: string
 }
 
+type Translations = {
+  loading: string
+  noResults: string
+  coursesFound: string
+}
+
 const truncate = (text?: string, max = 300) => {
   const t = (text || '').replace(/\s+/g, ' ').trim()
   return t.length > max ? t.slice(0, max) + '…' : t
 }
 
-export function ResultList({ results, loading }: { results: Result[]; loading: boolean }) {
+export function ResultList({ 
+  results, 
+  loading, 
+  translations = {
+    loading: 'Searching...',
+    noResults: 'No results found. Try a different query.',
+    coursesFound: 'course(s) found'
+  }
+}: { 
+  results: Result[]; 
+  loading: boolean;
+  translations?: Translations
+}) {
   if (loading) {
     return (
       <div className="loading">
         <div className="spinner"></div>
-        <span>Searching...</span>
+        <span>{translations.loading}</span>
       </div>
     )
   }
@@ -23,14 +41,14 @@ export function ResultList({ results, loading }: { results: Result[]; loading: b
   if (!results?.length) {
     return (
       <div className="empty">
-        <p>No results found. Try a different query.</p>
+        <p>{translations.noResults}</p>
       </div>
     )
   }
 
   return (
     <div className="results">
-      <div className="resultsCount">{results.length} course{results.length !== 1 ? 's' : ''} found</div>
+      <div className="resultsCount">{results.length} {translations.coursesFound}</div>
       {results.map((r) => (
         <article key={r.id} className="card">
           <div className="cardHeader">

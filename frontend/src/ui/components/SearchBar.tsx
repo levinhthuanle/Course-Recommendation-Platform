@@ -3,18 +3,27 @@ type Props = {
   onChange: (v: string) => void
   onSearch: () => void
   disabled?: boolean
+  placeholder?: string
+  buttonText?: string
 }
 
-export function SearchBar({ value, onChange, onSearch, disabled }: Props) {
+export function SearchBar({ 
+  value, 
+  onChange, 
+  onSearch, 
+  disabled, 
+  placeholder = 'Search courses...',
+  buttonText = 'Search'
+}: Props) {
   return (
     <div className="search">
       <input
-        placeholder="Search courses..."
+        placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && onSearch()}
       />
-      <button onClick={onSearch} disabled={disabled}>Search</button>
+      <button onClick={onSearch} disabled={disabled}>{buttonText}</button>
     </div>
   )
 }
