@@ -1,6 +1,7 @@
 """Chat service using Gemini API with RAG for course Q&A."""
 
 import logging
+import re
 from typing import List, Dict, Optional, Set
 import google.generativeai as genai
 
@@ -82,6 +83,24 @@ class ChatService:
             logger.error(f"Failed to initialize Gemini: {e}")
             self.model = None
 
+    def _extract_course_codes(self, query: str) -> List[str]:
+        """
+        Extract course codes from user query.
+        
+        Examples:
+            "mô tả rõ hơn khoá CS161" -> ["CS161"]
+            "so sánh CS161 và CS162" -> ["CS161", "CS162"]
+            "CSC10102 là gì" -> ["CSC10102"]
+        """
+        # Pattern for course codes: 2-5 letters + 2-6 digits + optional letter
+        pattern = r'\b([A-Z]{2,5}\s*\d{2,6}[A-Z]?)\b'
+        matches = re.findall(pattern, query.upper())
+        # Remove spaces within course codes
+        codes = [re.sub(r'\s+', '', code) for code in matches]
+        if codes:
+            logger.info(f"Extracted course codes from query: {codes}")
+        return codes
+
     def _expand_query(self, query: str) -> List[str]:
         """
         Expand Vietnamese query to include English equivalents.
@@ -92,7 +111,15 @@ class ChatService:
         Returns:
             List of search queries (original + expanded)
         """
-        queries = [query]
+        queries = []
+        
+        # First, extract any course codes mentioned
+        course_codes = self._extract_course_codes(query)
+        queries.extend(course_codes)
+        
+        # Add original query
+        queries.append(query)
+        
         query_lower = query.lower()
         
         # Check each keyword mapping
