@@ -282,3 +282,40 @@ class SearchService:
             return True
         except (MeilisearchCommunicationError, MeilisearchApiError):
             return False
+
+    def get_document_by_id(self, document_id: str) -> Optional[Dict]:
+        """
+        Get a single document by its ID.
+
+        Args:
+            document_id: The document ID
+
+        Returns:
+            Document dictionary or None if not found
+        """
+        if not self.index:
+            self.get_or_create_index()
+
+        try:
+            document = self.index.get_document(document_id)
+            # Convert Document object to dict if needed
+            if hasattr(document, '__dict__'):
+                return vars(document)
+            elif hasattr(document, 'to_dict'):
+                return document.to_dict()
+            elif isinstance(document, dict):
+                return document
+            else:
+                # Fallback: try to access as object attributes
+                return {
+                    "id": getattr(document, 'id', document_id),
+                    "course_code": getattr(document, 'course_code', ''),
+                    "title": getattr(document, 'title', ''),
+                    "summary": getattr(document, 'summary', ''),
+                    "content": getattr(document, 'content', ''),
+                }
+        except MeilisearchApiError as e:
+            if "document_not_found" in str(e):
+                return None
+            logger.error(f"Failed to get document {document_id}: {e}")
+            raise

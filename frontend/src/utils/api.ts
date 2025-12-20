@@ -22,4 +22,5 @@ export const api = {
       body: JSON.stringify({ message, history })
     }),
   chatStatus: () => fetchJson('/api/v1/chat/status'),
+  getCourse: (id: string) => fetchJson(`/api/v1/courses/${encodeURIComponent(id)}`),
 }

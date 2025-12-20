@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from meilisearch.errors import MeilisearchApiError, MeilisearchCommunicationError
 
 from app.core.config import Settings, get_settings
-from app.models.course import HealthResponse, IngestionStatus, SearchResponse
+from app.models.course import CourseDetailResponse, HealthResponse, IngestionStatus, SearchResponse
 from app.services.ingest_service import IngestionService
 from app.services.search_service import SearchService
 
@@ -117,6 +117,57 @@ async def search_courses(
         )
     except Exception as e:
         logger.error(f"Unexpected error during search: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred",
+        )
+
+
+@router.get("/courses/{course_id}", response_model=CourseDetailResponse, summary="Get course details")
+async def get_course_detail(
+    course_id: str,
+    search_service: SearchService = Depends(get_search_service),
+) -> CourseDetailResponse:
+    """
+    Get full details of a specific course by ID.
+
+    Args:
+        course_id: The unique course document ID
+        search_service: Search service instance
+
+    Returns:
+        CourseDetailResponse with full course information
+
+    Raises:
+        HTTPException: If course not found or retrieval fails
+    """
+    try:
+        document = search_service.get_document_by_id(course_id)
+        
+        if not document:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Course with ID '{course_id}' not found",
+            )
+        
+        return CourseDetailResponse(
+            id=document.get("id", ""),
+            course_code=document.get("course_code", ""),
+            title=document.get("title", ""),
+            summary=document.get("summary", ""),
+            content=document.get("content", ""),
+        )
+
+    except HTTPException:
+        raise
+    except MeilisearchApiError as e:
+        logger.error(f"Meilisearch API error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve course: {str(e)}",
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error getting course {course_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred",

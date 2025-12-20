@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { SearchBar } from './components/SearchBar'
 import { ResultList } from './components/ResultList'
+import { CourseDetailModal } from './components/CourseDetailModal'
 import { api } from '../utils/api'
 
 type Hit = {
@@ -8,6 +9,14 @@ type Hit = {
   course_code?: string
   title?: string
   summary?: string
+}
+
+type CourseDetail = {
+  id: string
+  course_code: string
+  title: string
+  summary: string
+  content: string
 }
 
 type Mode = 'search' | 'chat'
@@ -37,7 +46,14 @@ const translations = {
     feature3: 'AI thông minh',
     loading: 'Đang tìm kiếm...',
     noResults: 'Không tìm thấy kết quả. Thử từ khóa khác.',
-    coursesFound: 'khóa học được tìm thấy'
+    coursesFound: 'khóa học được tìm thấy',
+    // Modal translations
+    close: 'Đóng',
+    courseCode: 'Mã môn',
+    description: 'Mô tả',
+    fullContent: 'Nội dung chi tiết',
+    copyCode: 'Sao chép mã',
+    copied: 'Đã sao chép!'
   },
   en: {
     logoTitle: 'Course Finder',
@@ -61,7 +77,14 @@ const translations = {
     feature3: 'Smart AI',
     loading: 'Searching...',
     noResults: 'No results found. Try a different query.',
-    coursesFound: 'course(s) found'
+    coursesFound: 'course(s) found',
+    // Modal translations
+    close: 'Close',
+    courseCode: 'Course Code',
+    description: 'Description',
+    fullContent: 'Full Content',
+    copyCode: 'Copy Code',
+    copied: 'Copied!'
   }
 }
 
@@ -87,6 +110,11 @@ export default function App() {
   const [results, setResults] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([])
+  
+  // Modal state
+  const [selectedCourse, setSelectedCourse] = useState<CourseDetail | null>(null)
+  const [modalLoading, setModalLoading] = useState(false)
+  const [showModal, setShowModal] = useState(false)
 
   const t = translations[language]
   const canSearch = useMemo(() => query.trim().length > 0, [query])
@@ -127,6 +155,25 @@ export default function App() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleCourseClick = async (courseId: string) => {
+    setShowModal(true)
+    setModalLoading(true)
+    setSelectedCourse(null)
+    try {
+      const course = await api.getCourse(courseId)
+      setSelectedCourse(course)
+    } catch (e: any) {
+      console.error('Failed to load course:', e)
+    } finally {
+      setModalLoading(false)
+    }
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    setSelectedCourse(null)
   }
 
   const [chatLoading, setChatLoading] = useState(false)
@@ -300,11 +347,16 @@ export default function App() {
 
             {error && <div className="error">{error}</div>}
 
-            <ResultList results={results} loading={loading} translations={{
-              loading: t.loading,
-              noResults: t.noResults,
-              coursesFound: t.coursesFound
-            }} />
+            <ResultList 
+              results={results} 
+              loading={loading} 
+              onCourseClick={handleCourseClick}
+              translations={{
+                loading: t.loading,
+                noResults: t.noResults,
+                coursesFound: t.coursesFound
+              }} 
+            />
           </>
         ) : (
           <>
@@ -405,6 +457,23 @@ export default function App() {
           </div>
         </footer>
       </div>
+
+      {/* Course Detail Modal */}
+      {showModal && (
+        <CourseDetailModal
+          course={selectedCourse}
+          loading={modalLoading}
+          onClose={closeModal}
+          translations={{
+            close: t.close,
+            courseCode: t.courseCode,
+            description: t.description,
+            fullContent: t.fullContent,
+            copyCode: t.copyCode,
+            copied: t.copied
+          }}
+        />
+      )}
     </div>
   )
 }

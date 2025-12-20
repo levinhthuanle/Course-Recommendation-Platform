@@ -47,6 +47,27 @@ class CourseResponse(BaseModel):
         }
 
 
+class CourseDetailResponse(BaseModel):
+    """Response model for full course details."""
+
+    id: str
+    course_code: str
+    title: str
+    summary: str
+    content: str = Field(..., description="Full course content")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": "a1b2c3d4e5f6",
+                "course_code": "CS301",
+                "title": "Web Backend Development",
+                "summary": "Learn to build scalable web backends with Python, FastAPI, and databases.",
+                "content": "Full course description and syllabus content...",
+            }
+        }
+
+
 class SearchRequest(BaseModel):
     """Request model for search queries."""
 
