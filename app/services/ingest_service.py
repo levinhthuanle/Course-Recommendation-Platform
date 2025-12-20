@@ -14,14 +14,14 @@ from app.services.search_service import SearchService
 
 logger = logging.getLogger(__name__)
 
-# Course code pattern: 2-5 uppercase letters + optional space + 2-4 digits + optional letter
-# Examples: CS161, PH 212, MTH251, STAT451, ECE341
-COURSE_CODE_PATTERN = re.compile(r"^([A-Z]{2,5})\s*(\d{2,4}[A-Z]?)$")
+# Course code pattern: 2-5 uppercase letters + optional space + 2-6 digits + optional letter
+# Examples: CS161, PH 212, MTH251, STAT451, ECE341, CSC10102, CSC10001
+COURSE_CODE_PATTERN = re.compile(r"^([A-Z]{2,5})\s*(\d{2,6}[A-Z]?)$")
 
 # Course header pattern: CODE – Title (using various dash types)
-# Examples: "CS161 – Introduction to Computer Science I"
+# Examples: "CS161 – Introduction to Computer Science I", "CSC10102 - Career Observation"
 COURSE_HEADER_PATTERN = re.compile(
-    r"^([A-Z]{2,5})\s*(\d{2,4}[A-Z]?)\s*[\-–—]\s*(.+)$"
+    r"^([A-Z]{2,5})\s*(\d{2,6}[A-Z]?)\s*[\-–—]\s*(.+)$"
 )
 
 
@@ -41,63 +41,51 @@ class IngestionService:
     def _fix_broken_text(self, text: str) -> str:
         """Fix broken text from PDF extraction where letters are separated by spaces.
         
-        Example: "Data Mode ling a nd In tegration" -> "Data Modeling and Integration"
+        Example: "Data Mode ling a nd" -> "Data Modeling and"
+        
+        NOTE: This is a conservative fix - only fix known broken patterns.
+        The aggressive regex was removing all spaces between words.
         """
         if not text:
             return ""
         
-        # Common broken word patterns from PDF extraction
-        # Pattern: single letter followed by space followed by more letters
-        # Fix cases like "a nd" -> "and", "tion to" -> "tion to" is OK
-        
-        # Fix single letter + space + word fragment (e.g., "a nd" -> "and")
-        text = re.sub(r'\b([a-z])\s+([a-z]{1,3})\b', r'\1\2', text, flags=re.IGNORECASE)
-        
-        # Fix word fragment + space + single letters repeatedly
-        # "Mode ling" -> "Modeling", "In tegration" -> "Integration"
-        # Pattern: detect lowercase letter, space, lowercase continuation
-        text = re.sub(r'([a-z])\s+([a-z])', r'\1\2', text)
-        
-        # Fix uppercase start + broken continuation: "In tegration" -> "Integration"  
-        text = re.sub(r'([A-Z][a-z]*)\s+([a-z]+)', lambda m: m.group(1) + m.group(2) if len(m.group(1)) <= 3 else m.group(0), text)
-        
-        # Common specific fixes for known broken words
+        # Common specific fixes for known broken words from PDF extraction
         broken_words = {
-            r'Introduc\s*tion': 'Introduction',
-            r'Data\s*base': 'Database',
-            r'Mode\s*ling': 'Modeling',
-            r'In\s*tegration': 'Integration',
-            r'Sys\s*tems': 'Systems',
-            r'Pro\s*gram\s*ming': 'Programming',
-            r'Com\s*puter': 'Computer',
-            r'Sci\s*ence': 'Science',
-            r'Algo\s*rithms': 'Algorithms',
-            r'Soft\s*ware': 'Software',
-            r'Engi\s*neering': 'Engineering',
-            r'Net\s*works': 'Networks',
-            r'Oper\s*ating': 'Operating',
-            r'Manage\s*ment': 'Management',
-            r'Develop\s*ment': 'Development',
-            r'Archi\s*tecture': 'Architecture',
-            r'Secu\s*rity': 'Security',
-            r'Appli\s*cation': 'Application',
-            r'Appli\s*cations': 'Applications',
-            r'Infor\s*mation': 'Information',
-            r'Intel\s*ligence': 'Intelligence',
-            r'Arti\s*ficial': 'Artificial',
-            r'Ma\s*chine': 'Machine',
-            r'Learn\s*ing': 'Learning',
-            r'Struc\s*tures': 'Structures',
-            r'Dis\s*tributed': 'Distributed',
-            r'Paral\s*lel': 'Parallel',
-            r'Theo\s*ry': 'Theory',
-            r'Funda\s*mentals': 'Fundamentals',
-            r'Prin\s*ciples': 'Principles',
-            r'Analy\s*sis': 'Analysis',
-            r'De\s*sign': 'Design',
-            r'Imple\s*mentation': 'Implementation',
-            r'Visu\s*alization': 'Visualization',
-            r'Compu\s*tation': 'Computation',
+            r'Introduc\s+tion': 'Introduction',
+            r'Data\s+base': 'Database',
+            r'Mode\s+ling': 'Modeling',
+            r'In\s+tegration': 'Integration',
+            r'Sys\s+tems': 'Systems',
+            r'Pro\s+gram\s*ming': 'Programming',
+            r'Com\s+puter': 'Computer',
+            r'Sci\s+ence': 'Science',
+            r'Algo\s+rithms': 'Algorithms',
+            r'Soft\s+ware': 'Software',
+            r'Engi\s+neering': 'Engineering',
+            r'Net\s+works': 'Networks',
+            r'Oper\s+ating': 'Operating',
+            r'Manage\s+ment': 'Management',
+            r'Develop\s+ment': 'Development',
+            r'Archi\s+tecture': 'Architecture',
+            r'Secu\s+rity': 'Security',
+            r'Appli\s+cation': 'Application',
+            r'Appli\s+cations': 'Applications',
+            r'Infor\s+mation': 'Information',
+            r'Intel\s+ligence': 'Intelligence',
+            r'Arti\s+ficial': 'Artificial',
+            r'Ma\s+chine': 'Machine',
+            r'Learn\s+ing': 'Learning',
+            r'Struc\s+tures': 'Structures',
+            r'Dis\s+tributed': 'Distributed',
+            r'Paral\s+lel': 'Parallel',
+            r'Theo\s+ry': 'Theory',
+            r'Funda\s+mentals': 'Fundamentals',
+            r'Prin\s+ciples': 'Principles',
+            r'Analy\s+sis': 'Analysis',
+            r'De\s+sign': 'Design',
+            r'Imple\s+mentation': 'Implementation',
+            r'Visu\s+alization': 'Visualization',
+            r'Compu\s+tation': 'Computation',
             r'Compu\s*tational': 'Computational',
         }
         
@@ -177,14 +165,52 @@ class IngestionService:
             text_parts = []
 
             for page in reader.pages:
-                text = page.extract_text()
+                # Try layout mode first (better spacing preservation)
+                try:
+                    text = page.extract_text(extraction_mode="layout")
+                except:
+                    text = page.extract_text()
+                
                 if text:
+                    # Fix common PDF extraction issues
+                    # Some PDFs have no spaces between words
+                    # Try to detect and fix by adding spaces before capital letters
+                    # that follow lowercase letters (camelCase detection)
+                    text = self._fix_missing_spaces(text)
                     text_parts.append(text)
 
             return "\n".join(text_parts)
         except Exception as e:
             logger.error(f"Failed to extract text from {pdf_path.name}: {e}")
             raise
+
+    def _fix_missing_spaces(self, text: str) -> str:
+        """Fix text where spaces are missing between words.
+        
+        Detects patterns like 'conceptsPrinciples' and adds spaces.
+        """
+        if not text:
+            return ""
+        
+        # Add space before uppercase letter that follows lowercase letter
+        # "conceptsPrinciples" -> "concepts Principles"
+        text = re.sub(r'([a-z])([A-Z])', r'\1 \2', text)
+        
+        # Add space after period/comma if followed by uppercase letter without space
+        # "systems.The" -> "systems. The"
+        text = re.sub(r'([.,:;])([A-Z])', r'\1 \2', text)
+        
+        # Fix common compound words that got merged
+        # "DatabaseManagement" -> "Database Management"
+        text = re.sub(r'(Database)(Management)', r'\1 \2', text)
+        text = re.sub(r'(Information)(System)', r'\1 \2', text)
+        text = re.sub(r'(Computer)(Science)', r'\1 \2', text)
+        text = re.sub(r'(Machine)(Learning)', r'\1 \2', text)
+        text = re.sub(r'(Data)(Structures)', r'\1 \2', text)
+        text = re.sub(r'(Operating)(Systems)', r'\1 \2', text)
+        text = re.sub(r'(Software)(Engineering)', r'\1 \2', text)
+        
+        return text
 
     def _parse_course_header(self, line: str) -> Optional[Tuple[str, str]]:
         """

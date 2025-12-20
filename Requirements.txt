@@ -14,3 +14,6 @@ meilisearch==0.31.0
 pypdf==4.0.1
 
 python-dotenv==1.0.1
+
+# Gemini AI for chatbot
+google-generativeai==0.8.3

@@ -38,6 +38,8 @@ services:
       - RESOURCES_PATH=/app/Resources
       - BATCH_SIZE=100
       - SEARCH_LIMIT=20
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-flash}
     volumes:
       - ./Resources:/app/Resources
       - ./app:/app/app  # Mount code for development

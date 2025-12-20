@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.endpoints import courses
+from app.api.endpoints import courses, chat
 from app.core.config import get_settings
 
 # Configure logging
@@ -89,6 +89,7 @@ async def global_exception_handler(request, exc):
 
 # Include routers
 app.include_router(courses.router)
+app.include_router(chat.router)
 
 
 # Root endpoint

@@ -1,9 +1,9 @@
 """Application configuration and environment variables management."""
 
 from functools import lru_cache
-from typing import List
+from typing import List, Union
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,11 +26,22 @@ class Settings(BaseSettings):
     host: str = Field(default="0.0.0.0", description="Server host")
     port: int = Field(default=8000, description="Server port")
     
-    # CORS Settings
+    # CORS Settings - accept string or list
     cors_origins: List[str] = Field(
-        default=["http://localhost:3000", "http://localhost:5173"],
+        default=["*"],
         description="Allowed CORS origins"
     )
+    
+    @field_validator('cors_origins', mode='before')
+    @classmethod
+    def parse_cors_origins(cls, v):
+        if isinstance(v, str):
+            # Handle comma-separated string
+            if v.startswith('['):
+                import json
+                return json.loads(v)
+            return [origin.strip() for origin in v.split(',')]
+        return v
     
     # Meilisearch Settings
     meilisearch_url: str = Field(
@@ -68,6 +79,16 @@ class Settings(BaseSettings):
     typo_tolerance_min_word_size_for_typos_two: int = Field(
         default=8,
         description="Minimum word size for two typos tolerance"
+    )
+    
+    # Gemini AI Settings
+    gemini_api_key: str = Field(
+        default="",
+        description="Google Gemini API key for chat functionality"
+    )
+    gemini_model: str = Field(
+        default="gemini-2.5-flash",
+        description="Gemini model to use (gemini-1.5-flash, gemini-1.5-pro, etc.)"
     )
 
 

@@ -129,16 +129,29 @@ export default function App() {
     }
   }
 
-  const handleChatSubmit = (message: string) => {
-    if (!message.trim()) return
-    setChatMessages(prev => [...prev, { role: 'user', content: message }])
-    // Simulate bot response
-    setTimeout(() => {
+  const [chatLoading, setChatLoading] = useState(false)
+
+  const handleChatSubmit = async (message: string) => {
+    if (!message.trim() || chatLoading) return
+    
+    const userMessage = { role: 'user' as const, content: message }
+    setChatMessages(prev => [...prev, userMessage])
+    setChatLoading(true)
+    
+    try {
+      const response = await api.chat(message, chatMessages)
       setChatMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: t.chatResponse
+        content: response.message
       }])
-    }, 1000)
+    } catch (e: any) {
+      setChatMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: `Xin lỗi, đã xảy ra lỗi: ${e?.message || 'Không thể kết nối đến server'}`
+      }])
+    } finally {
+      setChatLoading(false)
+    }
   }
 
   return (
@@ -324,6 +337,17 @@ export default function App() {
                       <div className="chatMessageContent">{msg.content}</div>
                     </div>
                   ))
+                )}
+                {chatLoading && (
+                  <div className="chatMessage assistant">
+                    <div className="chatMessageContent">
+                      <span className="typingIndicator">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
               <div className="chatInput">
