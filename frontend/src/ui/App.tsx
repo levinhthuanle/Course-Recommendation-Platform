@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { SearchBar } from './components/SearchBar'
 import { ResultList } from './components/ResultList'
 import { CourseDetailModal } from './components/CourseDetailModal'
+import { ExportButtons } from './components/ExportButtons'
 import { api } from '../utils/api'
 
 type Hit = {
@@ -53,7 +54,13 @@ const translations = {
     description: 'Mô tả',
     fullContent: 'Nội dung chi tiết',
     copyCode: 'Sao chép mã',
-    copied: 'Đã sao chép!'
+    copied: 'Đã sao chép!',
+    // Export translations
+    exportPDF: 'Xuất PDF',
+    exportExcel: 'Xuất Excel',
+    exporting: 'Đang xuất...',
+    courseName: 'Tên khóa học',
+    sheetName: 'Khóa học'
   },
   en: {
     logoTitle: 'Course Finder',
@@ -84,7 +91,13 @@ const translations = {
     description: 'Description',
     fullContent: 'Full Content',
     copyCode: 'Copy Code',
-    copied: 'Copied!'
+    copied: 'Copied!',
+    // Export translations
+    exportPDF: 'Export PDF',
+    exportExcel: 'Export Excel',
+    exporting: 'Exporting...',
+    courseName: 'Course Name',
+    sheetName: 'Courses'
   }
 }
 
@@ -346,6 +359,22 @@ export default function App() {
             />
 
             {error && <div className="error">{error}</div>}
+
+            {/* Export buttons - show when results exist */}
+            {results.length > 0 && !loading && (
+              <ExportButtons
+                courses={results}
+                searchQuery={query}
+                translations={{
+                  exportPDF: t.exportPDF,
+                  exportExcel: t.exportExcel,
+                  exporting: t.exporting,
+                  courseCode: t.courseCode,
+                  courseName: t.courseName,
+                  sheetName: t.sheetName
+                }}
+              />
+            )}
 
             <ResultList 
               results={results} 

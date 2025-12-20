@@ -1034,3 +1034,91 @@ body {
     flex-wrap: wrap;
   }
 }
+
+/* ==================== EXPORT BUTTONS ==================== */
+
+.exportButtons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  justify-content: flex-end;
+}
+
+.exportBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.exportBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.exportBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.exportBtn svg {
+  flex-shrink: 0;
+}
+
+/* PDF button - red accent */
+.exportPDF {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.exportPDF:hover:not(:disabled) {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+/* Excel button - green accent */
+.exportExcel {
+  border-color: #22c55e;
+  color: #22c55e;
+}
+
+.exportExcel:hover:not(:disabled) {
+  background: #22c55e;
+  color: white;
+  border-color: #22c55e;
+}
+
+/* Export spinner */
+.exportSpinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .exportButtons {
+    justify-content: center;
+  }
+
+  .exportBtn {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .exportBtn span:not(.exportSpinner) {
+    display: none;
+  }
+}
