@@ -20,7 +20,7 @@ type CourseDetail = {
   content: string
 }
 
-type Mode = 'search' | 'chat'
+type Mode = 'home' | 'search' | 'chat'
 type Theme = 'light' | 'dark'
 type Language = 'vi' | 'en'
 
@@ -28,8 +28,13 @@ const translations = {
   vi: {
     logoTitle: 'Course Finder',
     logoSubtitle: 'by HCMUS',
+    home: 'Trang chủ',
     search: 'Tìm kiếm',
     chatBot: 'Chat Bot',
+    homeTitle: 'Chào mừng đến với Course Finder',
+    homeSubtitle: 'Tìm kiếm và khám phá các khóa học phù hợp với bạn',
+    browseCourse: 'Tìm kiếm khóa học',
+    tryAIAssistant: 'Thử trợ lý AI',
     searchTitle: 'Tìm Kiếm Khóa Học Thông Minh',
     searchSubtitle: 'Được hỗ trợ bởi AI tiên tiến nhất. Tìm kiếm khóa học phù hợp với bạn trong vài giây.',
     chatTitle: 'Chat Bot Tư Vấn Khóa Học',
@@ -65,8 +70,13 @@ const translations = {
   en: {
     logoTitle: 'Course Finder',
     logoSubtitle: 'by HCMUS',
+    home: 'Home',
     search: 'Search',
     chatBot: 'Chat Bot',
+    homeTitle: 'Welcome to Course Finder',
+    homeSubtitle: 'Discover and explore courses that match your interests',
+    browseCourse: 'Browse Course',
+    tryAIAssistant: 'Try AI Assistant',
     searchTitle: 'Smart Course Search',
     searchSubtitle: 'Powered by the most advanced AI. Find the perfect course for you in seconds.',
     chatTitle: 'Course Advisor Chat Bot',
@@ -115,7 +125,7 @@ const isValidResult = (title?: string, code?: string): boolean => {
 }
 
 export default function App() {
-  const [mode, setMode] = useState<Mode>('search')
+  const [mode, setMode] = useState<Mode>('home')
   const [theme, setTheme] = useState<Theme>('light')
   const [language, setLanguage] = useState<Language>('vi')
   const [query, setQuery] = useState('')
@@ -291,6 +301,16 @@ export default function App() {
 
           <div className="appBarCenter">
             <button 
+              className={`modeButton ${mode === 'home' ? 'active' : ''}`}
+              onClick={() => setMode('home')}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+              </svg>
+              {t.home}
+            </button>
+            <button 
               className={`modeButton ${mode === 'search' ? 'active' : ''}`}
               onClick={() => setMode('search')}
             >
@@ -345,7 +365,37 @@ export default function App() {
 
       {/* Main Content */}
       <div className="container">
-        {mode === 'search' ? (
+        {mode === 'home' ? (
+          <>
+            <header className="header">
+              <div className="heroIcon">🎓</div>
+              <h1>{t.homeTitle}</h1>
+              <p>{t.homeSubtitle}</p>
+            </header>
+
+            <div className="homeButtons">
+              <button 
+                className="homeButton primary"
+                onClick={() => setMode('search')}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="m21 21-4.35-4.35"/>
+                </svg>
+                {t.browseCourse}
+              </button>
+              <button 
+                className="homeButton secondary"
+                onClick={() => setMode('chat')}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                {t.tryAIAssistant}
+              </button>
+            </div>
+          </>
+        ) : mode === 'search' ? (
           <>
             <header className="header">
               <div className="heroIcon">🎓</div>
