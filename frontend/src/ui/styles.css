@@ -368,6 +368,72 @@ body {
   margin: 0 auto;
 }
 
+/* Home Buttons */
+.homeButtons {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 48px 0;
+}
+
+.homeButton {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 40px;
+  border-radius: 16px;
+  border: none;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px var(--shadow);
+  min-width: 220px;
+  justify-content: center;
+}
+
+.homeButton.primary {
+  background: var(--accent);
+  color: #1a1a1a;
+}
+
+.homeButton.primary:hover {
+  background: var(--accent-hover);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(245, 184, 0, 0.4);
+}
+
+.homeButton.secondary {
+  background: var(--panel);
+  color: var(--text);
+  border: 2px solid var(--border);
+}
+
+.homeButton.secondary:hover {
+  background: var(--bg-secondary);
+  border-color: var(--accent);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px var(--shadow-lg);
+}
+
+.homeButton svg {
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .homeButtons {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .homeButton {
+    width: 100%;
+    min-width: auto;
+  }
+}
+
 /* Search Bar */
 .search {
   display: flex;
