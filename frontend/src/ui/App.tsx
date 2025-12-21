@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { SearchBar } from './components/SearchBar'
 import { ResultList } from './components/ResultList'
 import { CourseDetailModal } from './components/CourseDetailModal'
@@ -474,7 +475,9 @@ export default function App() {
                 ) : (
                   chatMessages.map((msg, idx) => (
                     <div key={idx} className={`chatMessage ${msg.role}`}>
-                      <div className="chatMessageContent">{msg.content}</div>
+                      <div className="chatMessageContent">
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
                     </div>
                   ))
                 )}
