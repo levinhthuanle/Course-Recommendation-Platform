@@ -4,6 +4,7 @@ A production-ready FastAPI backend for searching and recommending university cou
 
 ## 🚀 Features
 
+- **Hybrid Search**: Combines keyword and semantic vector search using Meilisearch v1.6+ (see [HYBRID_SEARCH_IMPLEMENTATION.md](HYBRID_SEARCH_IMPLEMENTATION.md))
 - **Full-Text Search**: Powered by Meilisearch with typo tolerance and relevance ranking
 - **PDF Ingestion**: Automatic parsing of PDF syllabus files with text extraction and cleaning
 - **RESTful API**: Clean, documented API endpoints for search and data management
@@ -148,15 +149,21 @@ Check the health status of the application and Meilisearch connection.
 
 ### Search Courses
 ```http
-GET /api/v1/search?q=web backend development&limit=20
+GET /api/v1/search?q=web backend development&limit=20&semantic_ratio=0.5
 ```
-Search for courses based on a query string.
+Search for courses based on a query string with hybrid search (keyword + semantic).
 
 **Query Parameters:**
 - `q` (required): Search query
 - `limit` (optional): Number of results (1-100, default: 20)
 - `offset` (optional): Pagination offset (default: 0)
 - `course_code` (optional): Filter by specific course code
+- `semantic_ratio` (optional): Balance between keyword (0.0) and semantic (1.0) search (default: 0.5)
+
+**Semantic Ratio Guide:**
+- `0.0`: Pure keyword search (exact term matching)
+- `0.5`: Balanced hybrid search (recommended)
+- `1.0`: Pure semantic search (meaning-based)
 
 **Example Response:**
 ```json

@@ -124,6 +124,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([])
   
+  // Advanced search options
+  const [limit, setLimit] = useState(20)
+  const [semanticRatio, setSemanticRatio] = useState(0.5)
+  
   // Modal state
   const [selectedCourse, setSelectedCourse] = useState<CourseDetail | null>(null)
   const [modalLoading, setModalLoading] = useState(false)
@@ -153,7 +157,7 @@ export default function App() {
     setLoading(true)
     setError(null)
     try {
-      const data = await api.search(q, 20)
+      const data = await api.search(q, limit, semanticRatio)
       const next: Hit[] = (data.hits || [])
         .map((h: any) => ({
           id: String(h.id ?? ''),
@@ -356,6 +360,11 @@ export default function App() {
               disabled={!canSearch || loading}
               placeholder={t.searchPlaceholder}
               buttonText={t.searchButton}
+              limit={limit}
+              onLimitChange={setLimit}
+              semanticRatio={semanticRatio}
+              onSemanticRatioChange={setSemanticRatio}
+              showAdvanced={true}
             />
 
             {error && <div className="error">{error}</div>}

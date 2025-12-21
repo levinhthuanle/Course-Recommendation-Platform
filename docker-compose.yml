@@ -18,11 +18,20 @@ services:
       retries: 5
       start_period: 10s
 
-  # FastAPI Backend Service
+  # Backend Dependencies Base Image (build once)
+  backend-deps:
+    build:
+      context: .
+      dockerfile: Dockerfile.deps
+    image: course-backend-deps:latest
+    # This service just builds the image, doesn't run
+
+  # FastAPI Backend Service (fast rebuild)
   backend:
     build:
       context: .
       dockerfile: Dockerfile
+    image: course-backend:latest
     container_name: course_ir_backend
     ports:
       - "8000:8000"
@@ -44,6 +53,8 @@ services:
       - ./Resources:/app/Resources
       - ./app:/app/app  # Mount code for development
     depends_on:
+      backend-deps:
+        condition: service_completed_successfully
       meilisearch:
         condition: service_healthy
     restart: unless-stopped

@@ -14,7 +14,8 @@ async function fetchJson(path: string, init?: RequestInit) {
 
 export const api = {
   health: () => fetchJson('/api/v1/health'),
-  search: (q: string, limit = 20) => fetchJson(`/api/v1/search?q=${encodeURIComponent(q)}&limit=${limit}`),
+  search: (q: string, limit = 20, semanticRatio = 0.5) => 
+    fetchJson(`/api/v1/search?q=${encodeURIComponent(q)}&limit=${limit}&semantic_ratio=${semanticRatio}`),
   ingest: (force = false) => fetchJson(`/api/v1/ingest?force_reindex=${force}`, { method: 'POST' }),
   chat: (message: string, history: Array<{role: string, content: string}> = []) => 
     fetchJson('/api/v1/chat', {

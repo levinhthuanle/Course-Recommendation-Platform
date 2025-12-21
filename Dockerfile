@@ -1,21 +1,11 @@
-# Dockerfile for Course Recommendation Backend
-FROM python:3.11-slim
+# Dockerfile - Application only (fast rebuild!)
+# Uses pre-built dependencies image
 
-# Set working directory
+FROM course-backend-deps:latest
+
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements file
-COPY Requirements.txt .
-
-# Install Python dependencies
-RUN pip install --no-cache-dir -r Requirements.txt
-
-# Copy application code
+# Copy application code only
 COPY . .
 
 # Expose port

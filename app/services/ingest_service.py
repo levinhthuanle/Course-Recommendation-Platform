@@ -11,6 +11,7 @@ from pypdf import PdfReader
 from app.core.config import Settings
 from app.models.course import CourseDocument, IngestionStatus
 from app.services.search_service import SearchService
+from app.services.embedding_service import get_embedding_service
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ class IngestionService:
         self.settings = settings
         self.search_service = search_service
         self.resources_path = Path(settings.resources_path)
+        self.embedding_service = get_embedding_service()
 
     def _generate_document_id(self, course_code: str, title: str) -> str:
         """Generate a unique ID based on course code and title."""
@@ -385,6 +387,45 @@ class IngestionService:
 
         return batches
 
+    def _add_embeddings_to_documents(self, documents: List[CourseDocument]) -> List[Dict]:
+        """
+        Generate embeddings for documents and add them to the document dicts.
+        
+        Args:
+            documents: List of CourseDocument objects
+            
+        Returns:
+            List of document dicts with embeddings added under '_vectors' field
+        """
+        logger.info(f"Generating embeddings for {len(documents)} documents...")
+        
+        # Prepare text for embedding: combine title + summary (most relevant fields)
+        texts_to_embed = [
+            f"{doc.title}. {doc.summary}" 
+            for doc in documents
+        ]
+        
+        # Generate embeddings in batch
+        try:
+            embeddings = self.embedding_service.generate_embeddings(texts_to_embed)
+            logger.info(f"Generated {len(embeddings)} embeddings")
+        except Exception as e:
+            logger.error(f"Failed to generate embeddings: {e}")
+            # Fall back to documents without embeddings
+            return [doc.model_dump() for doc in documents]
+        
+        # Add embeddings to document dicts
+        doc_dicts = []
+        for doc, embedding in zip(documents, embeddings):
+            doc_dict = doc.model_dump()
+            # Meilisearch v1.6+ expects embeddings in _vectors field
+            doc_dict["_vectors"] = {
+                "default": embedding  # 'default' matches the embedder name in config
+            }
+            doc_dicts.append(doc_dict)
+        
+        return doc_dicts
+
     def ingest_all_pdfs(self) -> IngestionStatus:
         """
         Ingest all PDF files from the resources directory.
@@ -451,8 +492,15 @@ class IngestionService:
             self.search_service.get_or_create_index()
             self.search_service.configure_index_settings()
 
-            # Batch and index
-            batches = self._batch_documents(documents, self.settings.batch_size)
+            # Generate embeddings and batch index
+            logger.info("Generating embeddings for documents...")
+            doc_dicts_with_embeddings = self._add_embeddings_to_documents(documents)
+            
+            # Batch the dict documents
+            batches = [
+                doc_dicts_with_embeddings[i:i + self.settings.batch_size]
+                for i in range(0, len(doc_dicts_with_embeddings), self.settings.batch_size)
+            ]
             indexed_count = 0
 
             for i, batch in enumerate(batches, 1):
@@ -496,12 +544,16 @@ class IngestionService:
             multi_docs = self._split_multi_course_pdf(content, pdf_path.name)
 
             if multi_docs:
-                self.search_service.add_documents([d.model_dump() for d in multi_docs])
+                # Generate embeddings for multi-course documents
+                docs_with_embeddings = self._add_embeddings_to_documents(multi_docs)
+                self.search_service.add_documents(docs_with_embeddings)
                 logger.info(f"Indexed {len(multi_docs)} courses from {pdf_path.name}")
                 return multi_docs[0], True
             else:
                 doc = self._build_single_document(pdf_path, content)
-                self.search_service.add_documents([doc.model_dump()])
+                # Generate embedding for single document
+                docs_with_embeddings = self._add_embeddings_to_documents([doc])
+                self.search_service.add_documents(docs_with_embeddings)
                 logger.info(f"Indexed single document: {doc.course_code} from {pdf_path.name}")
                 return doc, True
 

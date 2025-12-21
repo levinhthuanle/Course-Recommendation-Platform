@@ -1,19 +1,23 @@
-
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
 python-multipart==0.0.6
 
-
 pydantic==2.5.3
 pydantic-settings==2.1.0
 
-
+# Meilisearch - phiên bản này ổn định
 meilisearch==0.31.0
 
-
 pypdf==4.0.1
-
 python-dotenv==1.0.1
 
-# Gemini AI for chatbot
+# Gemini AI
 google-generativeai==0.8.3
+
+
+sentence-transformers>=3.0.1
+huggingface-hub>=0.23.0
+torch>=2.2.0
+
+
+tokenizers>=0.19.0

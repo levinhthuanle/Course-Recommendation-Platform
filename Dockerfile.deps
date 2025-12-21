@@ -1,0 +1,22 @@
+# Dockerfile.deps - Build base image with all dependencies
+# Build once, reuse many times!
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY Requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r Requirements.txt
+
+# This image will be reused by backend Dockerfile
+# Build with: docker build -f Dockerfile.deps -t course-backend-deps .

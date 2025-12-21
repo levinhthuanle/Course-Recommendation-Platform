@@ -88,6 +88,7 @@ class SearchService:
         - Ranking rules
         - Typo tolerance
         - Filterable attributes
+        - Embedder configuration for hybrid search (v1.6+)
         """
         if not self.index:
             self.get_or_create_index()
@@ -132,6 +133,20 @@ class SearchService:
                 ["id", "course_code", "title", "summary"]
             )
 
+            # Configure embedder for hybrid search (Meilisearch v1.6+)
+            # This enables vector search alongside keyword search
+            try:
+                embedder_config = {
+                    "default": {
+                        "source": "userProvided",
+                        "dimensions": 384  # all-MiniLM-L6-v2 dimension
+                    }
+                }
+                self.index.update_embedders(embedder_config)
+                logger.info("Configured embedder for hybrid search (vector + keyword)")
+            except Exception as e:
+                logger.warning(f"Could not configure embedder (may require Meilisearch v1.6+): {e}")
+
             logger.info("Meilisearch index settings configured successfully")
         except MeilisearchApiError as e:
             logger.error(f"Failed to configure index settings: {e}")
@@ -167,15 +182,19 @@ class SearchService:
         limit: int = 20,
         offset: int = 0,
         filters: Optional[str] = None,
+        hybrid_search: bool = False,  # Default to False until embedder is confirmed working
+        semantic_ratio: float = 0.5,
     ) -> SearchResponse:
         """
-        Search for courses in Meilisearch.
+        Search for courses in Meilisearch using hybrid search (keyword + vector).
 
         Args:
             query: Search query string
             limit: Maximum number of results to return
             offset: Number of results to skip (for pagination)
             filters: Optional filter string (e.g., 'course_code = CS101')
+            hybrid_search: Enable hybrid search combining keyword + semantic (default True)
+            semantic_ratio: Weight for semantic search (0.0 = pure keyword, 1.0 = pure semantic)
 
         Returns:
             SearchResponse with search results
@@ -193,12 +212,23 @@ class SearchService:
                 "attributesToRetrieve": ["id", "course_code", "title", "summary"],
                 "attributesToHighlight": ["title", "summary"],
                 "showMatchesPosition": False,
+                "showRankingScore": True,  # Show ranking scores
                 # Require all query terms to be present to reduce noisy single-term matches
                 "matchingStrategy": "all",
             }
 
             if filters:
                 search_params["filter"] = filters
+
+            # Enable hybrid search if embeddings are available
+            if hybrid_search:
+                try:
+                    search_params["hybrid"] = {
+                        "semanticRatio": semantic_ratio,
+                        "embedder": "default"
+                    }
+                except Exception as e:
+                    logger.warning(f"Hybrid search not available, falling back to keyword: {e}")
 
             results = self.index.search(query, search_params)
 

@@ -62,6 +62,9 @@ async def search_courses(
     ),
     offset: Optional[int] = Query(0, ge=0, description="Number of results to skip"),
     course_code: Optional[str] = Query(None, description="Filter by course code"),
+    semantic_ratio: Optional[float] = Query(
+        0.5, ge=0.0, le=1.0, description="Hybrid search semantic ratio (0.0 = keyword only, 1.0 = semantic only)"
+    ),
     settings: Settings = Depends(get_settings),
     search_service: SearchService = Depends(get_search_service),
 ) -> SearchResponse:
@@ -73,6 +76,7 @@ async def search_courses(
         limit: Maximum number of results (default from settings)
         offset: Pagination offset (default: 0)
         course_code: Optional filter by course code
+        semantic_ratio: Balance between keyword (0.0) and semantic (1.0) search (default: 0.5)
         settings: Application settings
         search_service: Search service instance
 
@@ -92,13 +96,17 @@ async def search_courses(
         if course_code:
             filters = f'course_code = "{course_code}"'
 
-        logger.info(f"Searching for: '{q}' (limit={limit}, offset={offset})")
+        logger.info(f"Searching for: '{q}' (limit={limit}, offset={offset}, semantic_ratio={semantic_ratio})")
 
+        # Only use hybrid search if embedder is configured
+        # For now, default to keyword search until embedder is confirmed working
         results = search_service.search(
             query=q,
             limit=limit,
             offset=offset,
             filters=filters,
+            hybrid_search=False,  # Temporarily disabled until embedder is confirmed
+            semantic_ratio=semantic_ratio,
         )
 
         return results
