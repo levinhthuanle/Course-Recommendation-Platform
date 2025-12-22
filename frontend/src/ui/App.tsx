@@ -43,11 +43,14 @@ const translations = {
     searchPlaceholder: 'Tìm kiếm khóa học...',
     searchButton: 'Tìm kiếm',
     chatPlaceholder: 'Nhập câu hỏi của bạn...',
-    chatWelcome: '👋 Xin chào! Tôi có thể giúp gì cho bạn?',
+    chatWelcome: 'Xin chào!',
+    chatWelcomeSubtitle: 'Chúng ta nên bắt đầu từ đâu nhỉ?',
     chatResponse: 'Xin chào! Tôi là trợ lý AI giúp bạn tìm kiếm khóa học. Bạn muốn tìm khóa học gì?',
-    suggestion1: 'Học Machine Learning',
-    suggestion2: 'Web Development',
-    suggestion3: 'Khóa học cho người mới',
+    suggestion1: 'Tìm khóa học Machine Learning',
+    suggestion2: 'Khóa học Web Development',
+    suggestion3: 'Khóa học cho người mới bắt đầu',
+    suggestion4: 'Giúp tôi tìm khóa học phù hợp',
+    suggestion5: 'Tư vấn lộ trình học tập',
     feature1: '20+ Khóa học',
     feature2: 'Tìm kiếm nhanh chóng',
     feature3: 'AI thông minh',
@@ -85,11 +88,14 @@ const translations = {
     searchPlaceholder: 'Search courses...',
     searchButton: 'Search',
     chatPlaceholder: 'Type your question...',
-    chatWelcome: '👋 Hello! How can I help you?',
+    chatWelcome: 'Hello!',
+    chatWelcomeSubtitle: 'Where should we start?',
     chatResponse: 'Hello! I am an AI assistant to help you find courses. What course are you looking for?',
-    suggestion1: 'Learn Machine Learning',
-    suggestion2: 'Web Development',
+    suggestion1: 'Find Machine Learning courses',
+    suggestion2: 'Web Development courses',
     suggestion3: 'Courses for Beginners',
+    suggestion4: 'Help me find suitable courses',
+    suggestion5: 'Advise on learning path',
     feature1: '20+ Courses',
     feature2: 'Fast Search',
     feature3: 'Smart AI',
@@ -128,7 +134,7 @@ const isValidResult = (title?: string, code?: string): boolean => {
 export default function App() {
   const [mode, setMode] = useState<Mode>('home')
   const [theme, setTheme] = useState<Theme>('light')
-  const [language, setLanguage] = useState<Language>('vi')
+  const [language, setLanguage] = useState<Language>('en')
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<any[]>([])
@@ -365,7 +371,7 @@ export default function App() {
       </nav>
 
       {/* Main Content */}
-      <div className="container">
+      <div className={`container ${mode === 'chat' ? 'chatMode' : ''}`}>
         {mode === 'home' ? (
           <>
             <header className="header">
@@ -448,28 +454,38 @@ export default function App() {
             />
           </>
         ) : (
-          <>
-            <header className="header">
-              <div className="heroIcon">🎓</div>
-              <h1>{t.chatTitle}</h1>
-              <p>{t.chatSubtitle}</p>
-            </header>
-
             <div className="chatContainer">
-              <div className="chatMessages">
+              <div className={`chatMessages ${chatMessages.length > 0 ? 'hasMessages' : ''}`}>
                 {chatMessages.length === 0 ? (
                   <div className="chatEmpty">
-                    <p>{t.chatWelcome}</p>
+                    <div className="chatWelcomeMessage">
+                      <div className="welcomeIcon">⭐</div>
+                      <h2 className="welcomeTitle">{t.chatWelcome}</h2>
+                      <p className="welcomeSubtitle">{t.chatWelcomeSubtitle}</p>
+                    </div>
                     <div className="chatSuggestions">
-                      <button onClick={() => handleChatSubmit(t.suggestion1)}>
-                        {t.suggestion1}
-                      </button>
-                      <button onClick={() => handleChatSubmit(t.suggestion2)}>
-                        {t.suggestion2}
-                      </button>
-                      <button onClick={() => handleChatSubmit(t.suggestion3)}>
-                        {t.suggestion3}
-                      </button>
+                      <div className="suggestionRow">
+                        <button className="suggestionChip" onClick={() => handleChatSubmit(t.suggestion1)}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                          </svg>
+                          {t.suggestion1}
+                        </button>
+                        <button className="suggestionChip" onClick={() => handleChatSubmit(t.suggestion2)}>
+                          {t.suggestion2}
+                        </button>
+                        <button className="suggestionChip" onClick={() => handleChatSubmit(t.suggestion3)}>
+                          {t.suggestion3}
+                        </button>
+                        <button className="suggestionChip" onClick={() => handleChatSubmit(t.suggestion4)}>
+                          {t.suggestion4}
+                        </button>
+                      </div>
+                      <div className="suggestionRow">
+                        <button className="suggestionChip" onClick={() => handleChatSubmit(t.suggestion5)}>
+                          {t.suggestion5}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -493,7 +509,7 @@ export default function App() {
                   </div>
                 )}
               </div>
-              <div className="chatInput">
+              <div className={`chatInput ${chatMessages.length > 0 ? 'hasMessages' : ''}`}>
                 <input
                   type="text"
                   placeholder={t.chatPlaceholder}
@@ -516,37 +532,8 @@ export default function App() {
                 </button>
               </div>
             </div>
-          </>
         )}
 
-        <footer className="footer">
-          <div className="footerFeatures">
-            <div className="feature">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="7" height="7"/>
-                <rect x="14" y="3" width="7" height="7"/>
-                <rect x="14" y="14" width="7" height="7"/>
-                <rect x="3" y="14" width="7" height="7"/>
-              </svg>
-              <span>{t.feature1}</span>
-            </div>
-            <div className="feature">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12 6 12 12 16 14"/>
-              </svg>
-              <span>{t.feature2}</span>
-            </div>
-            <div className="feature">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                <polyline points="2 17 12 22 22 17"/>
-                <polyline points="2 12 12 17 22 12"/>
-              </svg>
-              <span>{t.feature3}</span>
-            </div>
-          </div>
-        </footer>
       </div>
 
       {/* Course Detail Modal */}

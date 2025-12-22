@@ -305,6 +305,11 @@ body {
   cursor: pointer;
   transition: all 0.2s;
   backdrop-filter: blur(10px);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: none;
+  padding-right: 12px;
 }
 
 .langSelect:hover {
@@ -329,6 +334,13 @@ body {
   flex: 1;
   position: relative;
   z-index: 2;
+}
+
+/* Chat Mode - Wider container */
+.container.chatMode {
+  max-width: none !important;
+  width: 100% !important;
+  padding: 24px 5% !important;
 }
 
 /* Header / Hero */
@@ -601,61 +613,129 @@ body {
 
 /* Chat Interface */
 .chatContainer {
-  background: var(--panel);
-  border: 2px solid var(--border);
-  border-radius: 20px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   overflow: hidden;
-  box-shadow: 0 4px 16px var(--shadow);
+  box-shadow: none;
   display: flex;
   flex-direction: column;
-  height: 600px;
+  height: calc(100vh - 200px);
+  min-height: 600px;
+  max-height: 800px;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
 }
 
 .chatMessages {
   flex: 1;
-  padding: 24px;
+  padding: 40px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-height: 0;
+}
+
+/* When messages exist, make them wider */
+.chatMessages.hasMessages {
+  padding: 40px 5% !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
 }
 
 .chatEmpty {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
   height: 100%;
-  gap: 24px;
-  color: var(--muted);
+  padding: 40px;
+  color: var(--text);
 }
 
-.chatEmpty p {
+.chatWelcomeMessage {
+  width: 100%;
+  margin-bottom: 32px;
+}
+
+.welcomeIcon {
+  font-size: 24px;
+  margin-bottom: 12px;
+  display: inline-block;
+  background: linear-gradient(135deg, #4285F4, #34A853, #FBBC04, #EA4335);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.welcomeTitle {
+  font-size: 32px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.welcomeSubtitle {
   font-size: 18px;
   margin: 0;
+  color: var(--text-secondary);
+  font-weight: 400;
 }
 
 .chatSuggestions {
   display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 800px;
+}
+
+.suggestionRow {
+  display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.suggestionRow:first-child {
+  justify-content: flex-start;
+}
+
+.suggestionRow:last-child {
   justify-content: center;
 }
 
-.chatSuggestions button {
-  padding: 12px 20px;
-  border: 2px solid var(--border);
-  background: var(--bg);
+.suggestionChip {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  background: var(--panel);
   color: var(--text);
-  border-radius: 12px;
+  border-radius: 20px;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 1px 3px var(--shadow);
+  white-space: nowrap;
 }
 
-.chatSuggestions button:hover {
+.suggestionChip:hover {
   border-color: var(--accent);
-  background: var(--panel);
+  background: var(--bg);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow-lg);
+}
+
+.suggestionChip svg {
+  color: var(--accent);
+  flex-shrink: 0;
 }
 
 .chatMessage {
@@ -673,15 +753,25 @@ body {
 
 .chatMessageContent {
   max-width: 70%;
-  padding: 14px 18px;
-  border-radius: 14px;
+  padding: 10px 14px;
+  border-radius: 12px;
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 1.5;
+  display: inline-block;
+  width: fit-content;
+  max-width: 70%;
+}
+
+/* Wider messages when chat has started */
+.chatMessages.hasMessages .chatMessageContent {
+  max-width: 90% !important;
+  width: fit-content !important;
+  min-width: unset !important;
 }
 
 /* Markdown styling in chat messages */
 .chatMessageContent p {
-  margin: 0.5em 0;
+  margin: 0.3em 0;
 }
 
 .chatMessageContent p:first-child {
@@ -699,7 +789,7 @@ body {
 
 .chatMessageContent ol,
 .chatMessageContent ul {
-  margin: 0.5em 0;
+  margin: 0.3em 0;
   padding-left: 1.5em;
 }
 
@@ -772,9 +862,14 @@ body {
 .chatInput {
   display: flex;
   gap: 12px;
-  padding: 20px;
-  border-top: 2px solid var(--border);
-  background: var(--bg);
+  padding: 20px 40px;
+  border-top: 1px solid var(--border);
+  background: transparent;
+}
+
+/* Wider input when messages exist */
+.chatInput.hasMessages {
+  padding: 20px 5% !important;
 }
 
 .chatInput input {
@@ -812,36 +907,6 @@ body {
   transform: scale(1.05);
 }
 
-/* Footer */
-.footer {
-  margin-top: 64px;
-  padding-top: 32px;
-  border-top: 2px solid var(--border);
-}
-
-.footerFeatures {
-  display: flex;
-  justify-content: center;
-  gap: 48px;
-  flex-wrap: wrap;
-}
-
-.feature {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-}
-
-.feature svg {
-  color: var(--accent);
-}
-
-.feature span {
-  font-size: 14px;
-  font-weight: 500;
-}
 
 /* Responsive */
 @media (max-width: 768px) {
@@ -876,12 +941,10 @@ body {
     width: 100%;
   }
 
-  .footerFeatures {
-    gap: 24px;
-  }
-
   .chatContainer {
-    height: 500px;
+    height: calc(100vh - 180px);
+    min-height: 500px;
+    max-height: 700px;
   }
 }
 
