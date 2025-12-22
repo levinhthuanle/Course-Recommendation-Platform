@@ -1,0 +1,75 @@
+@startuml
+' Chatbot Workflow - Sequence Diagram
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+
+title RAG Chatbot Workflow (Sequence Diagram)
+
+actor User
+participant Frontend as "Frontend\n(React)"
+participant API as "Backend API\n(FastAPI)"
+participant ChatService as "ChatService\n(RAG Orchestrator)"
+participant SearchService as "SearchService\n(Meilisearch Hybrid)"
+participant Embed as "EmbeddingService\n(Sentence-Transformers)"
+participant Meili as "Meilisearch\n(Index)"
+participant Gemini as "Gemini API\n(LLM)"
+participant Cache as "Cache / Embedding Cache"
+participant Ingest as "IngestionService\n(PDF -> Docs)"
+
+== User interaction ==
+User -> Frontend: type message / question
+Frontend -> API: POST /api/v1/chat {message, history}
+API -> ChatService: handle_message(message, history)
+
+== Query expansion & preprocessing ==
+ChatService -> ChatService: expand & normalize query
+ChatService -> Cache: check cached_context(query)
+alt cache hit
+    Cache --> ChatService: cached_context
+else cache miss
+    ChatService -> SearchService: search(query, limit=K, semantic_ratio)
+    note right of SearchService: SearchService will
+    note right of SearchService: - generate query embedding (Embed)
+    SearchService -> Embed: encode(query)
+    Embed --> SearchService: query_vector
+    SearchService -> Meili: hybrid_search(query, vector, params)
+    Meili --> SearchService: hits (top-K docs)
+    SearchService --> ChatService: formatted_hits
+    ChatService -> Cache: store_context(query, formatted_hits)
+    Cache --> ChatService: ack
+end
+
+== Build context for LLM ==
+ChatService -> ChatService: select + format context (top docs + metadata)
+ChatService -> Gemini: generate_response(system_prompt + context + user_message)
+alt Gemini success
+    Gemini --> ChatService: assistant_text
+else Gemini failure
+    ChatService -> ChatService: fallback_message_generation()
+    ChatService --> API: assistant_text (fallback)
+    return
+end
+
+== Return to user ==
+ChatService --> API: assistant_text
+API --> Frontend: assistant_text
+Frontend --> User: display assistant response
+
+== Background / Admin flows ==
+User -> Frontend: request re-ingest (admin)
+Frontend -> API: POST /api/v1/ingest?force_reindex=true
+API -> Ingest: run_ingestion(force=True)
+Ingest -> Embed: generate_embeddings_for_documents
+Ingest -> Meili: add_documents_with_vectors
+Meili --> Ingest: indexing_tasks
+Ingest --> API: ingestion_status
+API --> Frontend: ingestion_result
+
+== Notes and error handling ==
+note over ChatService,SearchService
+- All search calls handle Meilisearch errors (invalid_embedder, timeouts)
+- ChatService falls back to keyword-only search if hybrid fails
+- Gemini calls have retry and safety filters; on filter trigger return safe fallback
+end note
+
+@enduml

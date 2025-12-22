@@ -18,7 +18,7 @@ class ChatService:
     KEYWORD_MAP = {
         # Programming
         "lập trình": ["programming", "computer science", "coding"],
-        "lập trình cơ bản": ["introduction to programming", "programming fundamentals", "CS161"],
+        "lập trình cơ bản": ["CS161"],
         "lập trình nâng cao": ["advanced programming", "data structures", "algorithms"],
         "cấu trúc dữ liệu": ["data structures", "algorithms"],
         "giải thuật": ["algorithms", "algorithm design"],

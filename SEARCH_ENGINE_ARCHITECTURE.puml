@@ -1,0 +1,211 @@
+@startuml Search Engine Architecture
+
+!define RECTANGLE class
+
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+
+title Hybrid Search Engine Architecture - Complete Flow
+
+' ============================================
+' INDEXING PHASE (Top Section)
+' ============================================
+
+package "INDEXING PHASE (One-time)" #E8F4F8 {
+    
+    rectangle "PDF Files" as PDF {
+        note right: Resources/*.pdf
+    }
+    
+    rectangle "Text Extraction\n(PyPDF)" as Extract {
+        note right
+            Input: Binary PDF
+            Output: Raw text string
+        end note
+    }
+    
+    rectangle "Cleaning &\nNormalization" as Clean {
+        note right
+            - Remove extra spaces
+            - Fix line breaks
+            - Normalize encoding
+        end note
+    }
+    
+    rectangle "Structure\nDetection" as Parse {
+        note right
+            - Extract course_code
+            - Extract title
+            - Parse sections
+            - Create CourseDocument
+        end note
+    }
+    
+    rectangle "Embedding\nGeneration" as Embed {
+        note right
+            Model: all-MiniLM-L6-v2
+            Input: title + summary
+            Output: [384] float vector
+        end note
+    }
+    
+    database "Meilisearch\nIndex" as MeiliIndex {
+        rectangle "Inverted Index\n(Keyword)" as InvertedIdx {
+            note right
+                Token → Document IDs
+                "web" → [IT3080, IT4409]
+                "database" → [CSC12003]
+            end note
+        }
+        
+        rectangle "Vector Index\n(Semantic)" as VectorIdx {
+            note right
+                Document → 384D Vector
+                IT3080 → [0.23, -0.45, ...]
+                Enables KNN search
+            end note
+        }
+    }
+}
+
+' ============================================
+' SEARCH PHASE (Bottom Section)
+' ============================================
+
+package "SEARCH PHASE (Real-time)" #FFF4E6 {
+    
+    actor User
+    
+    rectangle "Frontend\n(React)" as Frontend {
+        note left
+            - Search input
+            - semantic_ratio slider
+            - limit slider
+        end note
+    }
+    
+    rectangle "Backend API\n(FastAPI)" as API {
+        note right
+            GET /api/v1/search
+            ?q=web
+            &semantic_ratio=0.5
+            &limit=20
+        end note
+    }
+    
+    rectangle "Query\nEmbedding" as QueryEmbed {
+        note right
+            Convert query to 384D vector
+            "web development"
+            → [0.21, -0.43, ...]
+        end note
+    }
+    
+    rectangle "Meilisearch\nHybrid Search" as HybridSearch {
+        
+        rectangle "Keyword Search" as KeywordSearch {
+            note left
+                1. Tokenize query
+                2. Lookup inverted index
+                3. Rank by BM25
+                Score: 0.0 - 1.0
+            end note
+        }
+        
+        rectangle "Semantic Search" as SemanticSearch {
+            note right
+                1. Use query embedding
+                2. Compute cosine similarity
+                3. Find nearest neighbors
+                Score: 0.0 - 1.0
+            end note
+        }
+        
+        rectangle "Hybrid Fusion" as Fusion {
+            note bottom
+                final_score = 
+                (keyword_score × (1 - semantic_ratio))
+                + (semantic_score × semantic_ratio)
+                
+                Example (semantic_ratio=0.5):
+                keyword: 0.8, semantic: 0.6
+                → final: 0.7
+            end note
+        }
+    }
+    
+    rectangle "Ranking &\nFiltering" as Ranking {
+        note right
+            - Sort by final_score
+            - Apply limit
+            - Return top-K results
+        end note
+    }
+    
+    rectangle "Results\nDisplay" as Results {
+        note left
+            - Course cards
+            - Relevance scores
+            - Export options
+        end note
+    }
+}
+
+' ============================================
+' INDEXING FLOW
+' ============================================
+
+PDF -down-> Extract : "Parse"
+Extract -down-> Clean : "Raw text"
+Clean -down-> Parse : "Clean text"
+Parse -down-> Embed : "CourseDocument"
+Embed -down-> MeiliIndex : "Document +\nEmbedding"
+MeiliIndex -down-> InvertedIdx : "Build"
+MeiliIndex -down-> VectorIdx : "Build"
+
+' ============================================
+' SEARCH FLOW
+' ============================================
+
+User -right-> Frontend : "Enter query"
+Frontend -right-> API : "HTTP Request"
+API -down-> QueryEmbed : "Generate\nquery embedding"
+QueryEmbed -down-> HybridSearch : "Query +\nEmbedding"
+
+HybridSearch -down-> KeywordSearch : "Parallel"
+HybridSearch -down-> SemanticSearch : "Parallel"
+
+KeywordSearch -down-> InvertedIdx : "Lookup"
+SemanticSearch -down-> VectorIdx : "KNN Search"
+
+KeywordSearch -down-> Fusion : "keyword_score"
+SemanticSearch -down-> Fusion : "semantic_score"
+
+Fusion -down-> Ranking : "Fused scores"
+Ranking -down-> Results : "Top-K results"
+Results -left-> Frontend : "JSON response"
+Frontend -left-> User : "Display"
+
+' ============================================
+' LEGEND
+' ============================================
+
+legend right
+    |= Component |= Time |
+    | Indexing Phase | One-time (~5-10 min) |
+    | Search Phase | Real-time (<50ms) |
+    
+    |= Score Range |
+    | keyword_score | 0.0 - 1.0 (BM25) |
+    | semantic_score | 0.0 - 1.0 (Cosine) |
+    | final_score | Weighted average |
+    
+    |= semantic_ratio |
+    | 0.0 | 100% Keyword |
+    | 0.5 | Balanced (default) |
+    | 1.0 | 100% Semantic |
+endlegend
+
+@enduml
