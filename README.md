@@ -2,6 +2,21 @@
 
 A production-ready FastAPI backend for searching and recommending university courses using Meilisearch as the search engine. This system parses PDF syllabus files, extracts relevant information, and provides a powerful search API for course discovery.
 
+<table>
+  <tr>
+    <td align="center">
+      <img src="Figures/Light_HomePage.png" alt="Light Home Page" width="420" />
+      <br />
+      <em>Light Home Page</em>
+    </td>
+    <td align="center">
+      <img src="Figures/Dark_HomePage.png" alt="Dark Home Page" width="420" />
+      <br />
+      <em>Dark Home Page</em>
+    </td>
+  </tr>
+</table>
+
 ## 🚀 Features
 
 - **Hybrid Search**: Combines keyword and semantic vector search using Meilisearch v1.6+ (see [HYBRID_SEARCH_IMPLEMENTATION.md](HYBRID_SEARCH_IMPLEMENTATION.md))

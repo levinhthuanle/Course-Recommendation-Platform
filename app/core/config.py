@@ -87,7 +87,7 @@ class Settings(BaseSettings):
         description="Google Gemini API key for chat functionality"
     )
     gemini_model: str = Field(
-        default="gemini-2.5-flash",
+        default="gemini-2.5-flash-lite",
         description="Gemini model to use (gemini-1.5-flash, gemini-1.5-pro, etc.)"
     )
 
