@@ -1,6 +1,6 @@
 # Course Recommendation Platform
 
-A production-ready FastAPI backend for searching and recommending university courses using Meilisearch as the search engine. This system parses PDF syllabus files, extracts relevant information, and provides a powerful search API for course discovery.
+A production-oriented hybrid retrieval system and grounded RAG chatbot for university syllabus search. The goal is reliable, traceable answers backed by retrieved syllabus evidence rather than a demo chatbot.
 
 <table>
   <tr>
@@ -17,17 +17,85 @@ A production-ready FastAPI backend for searching and recommending university cou
   </tr>
 </table>
 
-## 🚀 Features
+## Goals And Reliability Focus
 
-- **Hybrid Search**: Combines keyword and semantic vector search using Meilisearch v1.6+ (see [HYBRID_SEARCH_IMPLEMENTATION.md](HYBRID_SEARCH_IMPLEMENTATION.md))
-- **Full-Text Search**: Powered by Meilisearch with typo tolerance and relevance ranking
-- **PDF Ingestion**: Automatic parsing of PDF syllabus files with text extraction and cleaning
-- **RESTful API**: Clean, documented API endpoints for search and data management
-- **Modular Architecture**: Well-structured codebase with separation of concerns
-- **Error Handling**: Comprehensive error handling and logging
-- **CORS Support**: Ready for frontend integration
-- **Health Monitoring**: Built-in health check endpoint
-- **Docker Support**: Docker Compose configuration for easy deployment
+- Grounded retrieval and responses backed by syllabus evidence
+- Retrieval reliability with hybrid scoring and evaluation-driven changes
+- Validation mindset: measurable failure modes and mitigations
+- Production-oriented architecture with traceability and observability hooks
+
+## Key Capabilities
+
+- **Hybrid Retrieval**: BM25 + dense retrieval with score fusion (see [HYBRID_SEARCH_IMPLEMENTATION.md](HYBRID_SEARCH_IMPLEMENTATION.md))
+- **Grounded RAG Chatbot**: Gemini responses constrained to retrieved syllabus context
+- **PDF Ingestion Pipeline**: OCR, parsing, chunking, and indexing
+- **Search API**: FastAPI endpoints for search and ingestion
+- **Reliability-first Design**: Explicit failure analysis and evaluation artifacts
+- **Dockerized Deployment**: Single compose for backend, search, and frontend
+
+## Architecture
+
+```mermaid
+flowchart LR
+  A[PDF Syllabi] --> B[OCR / Parsing]
+  B --> C[Chunking]
+  C --> D[Embedding Generation]
+  D --> E[Vector Storage]
+  C --> F[BM25 Index]
+  E --> G[Dense Retrieval]
+  F --> H[BM25 Retrieval]
+  G --> I[Hybrid Score Fusion]
+  H --> I
+  I --> J[Gemini API]
+  J --> K[Grounded Response Generation]
+
+  subgraph Evaluation And Validation
+    L[Curated QA Pairs]
+    M[Retrieval Comparison]
+    N[Failure Case Review]
+  end
+
+  L --> M --> N
+  N --> I
+```
+
+## Validation And Evaluation
+
+This repository includes lightweight, manual evaluation assets focused on retrieval reliability and grounded responses:
+
+- Curated QA pairs used as ground truth for retrieval checks: [evaluation/qa_pairs.json](evaluation/qa_pairs.json)
+- Retrieval comparison notes for BM25 vs dense vs hybrid: [evaluation/benchmark_results.md](evaluation/benchmark_results.md)
+- Documented failure cases with mitigations: [evaluation/failure_cases.md](evaluation/failure_cases.md)
+
+Evaluation is intentionally qualitative to avoid misleading claims. The goal is repeatable, transparent validation, not benchmark marketing.
+
+## Retrieval Strategy
+
+- **BM25** provides robust keyword coverage for course codes, titles, and structured fields.
+- **Dense retrieval** supports semantic similarity for natural language intent.
+- **Hybrid fusion** balances exact matching with semantic recall for stable ranking.
+- **Grounded responses** cite retrieved syllabus content rather than model priors.
+
+## Failure Analysis
+
+See [evaluation/failure_cases.md](evaluation/failure_cases.md) for realistic failure modes and mitigation strategies. These cases drive changes in parsing, chunking, retrieval fusion, and prompt constraints.
+
+## Current Limitations
+
+- OCR dependency and variable PDF quality can degrade retrieval accuracy.
+- Ranking instability across similar queries when documents are inconsistent.
+- Semantic ambiguity for short or underspecified queries.
+- Retrieval quality is bounded by syllabus coverage and formatting consistency.
+- Context window limits constrain how much evidence can be grounded per response.
+
+## Future Improvements
+
+- Reranking and cross-encoder verification for higher precision.
+- Automated retrieval evaluation jobs with regression tracking.
+- Observability dashboards for retrieval quality, latency, and error rates.
+- Response quality metrics tied to grounded evidence spans.
+- Query rewriting and caching for stable performance.
+- Retrieval monitoring to detect drift and data quality issues.
 
 ## 📋 Prerequisites
 
@@ -95,7 +163,7 @@ docker run -d -p 7700:7700 \
 docker-compose up -d
 ```
 
-## 🚀 Running the Application
+## 🚀 Running The Application
 
 ### Development Mode
 

@@ -1,0 +1,42 @@
+[
+  {
+    "question": "What are the prerequisites for the database systems course?",
+    "expected_answer": "List the prerequisite course codes and titles exactly as written in the syllabus prerequisites section.",
+    "expected_keywords": ["prerequisite", "course code", "requirements"]
+  },
+  {
+    "question": "How is the final grade weighted for this course?",
+    "expected_answer": "Provide the grading breakdown with each component and its percentage weight.",
+    "expected_keywords": ["grading", "percentage", "exam", "project", "assignment"]
+  },
+  {
+    "question": "Does this course require a lab component?",
+    "expected_answer": "Answer yes or no and cite the lab section or weekly schedule if present.",
+    "expected_keywords": ["lab", "weekly schedule", "required"]
+  },
+  {
+    "question": "Which textbook is required or recommended?",
+    "expected_answer": "Name the required or recommended textbook(s) with title and author if listed.",
+    "expected_keywords": ["textbook", "required", "recommended", "author"]
+  },
+  {
+    "question": "What topics are covered in the first half of the course?",
+    "expected_answer": "Summarize the first half topics from the syllabus schedule or outline section.",
+    "expected_keywords": ["schedule", "weeks", "topics", "outline"]
+  },
+  {
+    "question": "What is the attendance policy for this course?",
+    "expected_answer": "State the attendance policy exactly as described in the syllabus policy section.",
+    "expected_keywords": ["attendance", "policy", "absence"]
+  },
+  {
+    "question": "Are there any group project requirements?",
+    "expected_answer": "Summarize any group project requirement, milestones, or grading notes if present.",
+    "expected_keywords": ["group project", "milestone", "team"]
+  },
+  {
+    "question": "What learning outcomes are expected by the end of the course?",
+    "expected_answer": "List the learning outcomes or objectives from the syllabus outcomes section.",
+    "expected_keywords": ["learning outcomes", "objectives", "skills"]
+  }
+]
