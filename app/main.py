@@ -7,7 +7,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.endpoints import courses, chat
+from app.api.endpoints import auth, courses, chat
+from app.services.auth_service import AuthService
 from app.core.config import get_settings
 
 # Configure logging
@@ -31,6 +32,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
     logger.info(f"Meilisearch URL: {settings.meilisearch_url}")
     logger.info(f"Resources path: {settings.resources_path}")
+    AuthService(settings)
     
     yield
     
@@ -90,6 +92,7 @@ async def global_exception_handler(request, exc):
 # Include routers
 app.include_router(courses.router)
 app.include_router(chat.router)
+app.include_router(auth.router)
 
 
 # Root endpoint

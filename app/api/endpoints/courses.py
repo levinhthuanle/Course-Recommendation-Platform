@@ -1,12 +1,15 @@
 """Course search and ingestion API endpoints."""
 
 import logging
+from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from meilisearch.errors import MeilisearchApiError, MeilisearchCommunicationError
 
+from app.core.auth import get_current_user, require_admin
 from app.core.config import Settings, get_settings
+from app.models.user import UserPublic
 from app.models.course import CourseDetailResponse, HealthResponse, IngestionStatus, SearchResponse
 from app.services.ingest_service import IngestionService
 from app.services.search_service import SearchService
@@ -67,6 +70,7 @@ async def search_courses(
     ),
     settings: Settings = Depends(get_settings),
     search_service: SearchService = Depends(get_search_service),
+    current_user: UserPublic = Depends(get_current_user),
 ) -> SearchResponse:
     """
     Search for courses based on a query string.
@@ -135,6 +139,7 @@ async def search_courses(
 async def get_course_detail(
     course_id: str,
     search_service: SearchService = Depends(get_search_service),
+    current_user: UserPublic = Depends(get_current_user),
 ) -> CourseDetailResponse:
     """
     Get full details of a specific course by ID.
@@ -164,6 +169,12 @@ async def get_course_detail(
             title=document.get("title", ""),
             summary=document.get("summary", ""),
             content=document.get("content", ""),
+            course_name_en=document.get("course_name_en"),
+            course_name_vi=document.get("course_name_vi"),
+            credit_points=document.get("credit_points"),
+            prior_courses=document.get("prior_courses"),
+            course_description=document.get("course_description"),
+            course_goals=document.get("course_goals"),
         )
 
     except HTTPException:
@@ -194,6 +205,7 @@ async def ingest_pdfs(
     ),
     ingestion_service: IngestionService = Depends(get_ingestion_service),
     search_service: SearchService = Depends(get_search_service),
+    admin_user: UserPublic = Depends(require_admin),
 ) -> IngestionStatus:
     """
     Ingest all PDF files from the Resources directory and index them to Meilisearch.
@@ -242,12 +254,69 @@ async def ingest_pdfs(
         )
 
 
+@router.post(
+    "/ingest/upload",
+    status_code=status.HTTP_201_CREATED,
+    summary="Upload and ingest a PDF syllabus (admin only)",
+)
+async def upload_and_ingest_pdf(
+    file: UploadFile = File(...),
+    settings: Settings = Depends(get_settings),
+    ingestion_service: IngestionService = Depends(get_ingestion_service),
+    admin_user: UserPublic = Depends(require_admin),
+):
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF files are supported")
+
+    resources_path = Path(settings.resources_path)
+    resources_path.mkdir(parents=True, exist_ok=True)
+    target_path = resources_path / file.filename
+
+    try:
+        contents = await file.read()
+        if not contents:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty file")
+        target_path.write_bytes(contents)
+
+        doc, success = ingestion_service.ingest_single_pdf(target_path)
+        if not success:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to ingest file")
+
+        return {
+            "message": "File uploaded and ingested",
+            "filename": file.filename,
+            "course_id": doc.id if doc else None,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Upload ingest failed: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Upload ingest failed")
+
+
+@router.get(
+    "/ingest/files",
+    summary="List ingested PDF files (admin only)",
+)
+async def list_ingested_files(
+    settings: Settings = Depends(get_settings),
+    admin_user: UserPublic = Depends(require_admin),
+):
+    resources_path = Path(settings.resources_path)
+    if not resources_path.exists():
+        return {"files": []}
+
+    files = sorted([p.name for p in resources_path.glob("*.pdf")])
+    return {"files": files}
+
+
 @router.get(
     "/index/stats",
     summary="Get index statistics",
 )
 async def get_index_stats(
     search_service: SearchService = Depends(get_search_service),
+    admin_user: UserPublic = Depends(require_admin),
 ):
     """
     Get statistics about the Meilisearch index.
@@ -278,6 +347,7 @@ async def get_index_stats(
 )
 async def delete_all_documents(
     search_service: SearchService = Depends(get_search_service),
+    admin_user: UserPublic = Depends(require_admin),
 ):
     """
     Delete all documents from the search index.

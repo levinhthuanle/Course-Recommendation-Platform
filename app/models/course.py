@@ -11,6 +11,12 @@ class CourseDocument(BaseModel):
     id: str = Field(..., description="Unique identifier for the course (hash)")
     course_code: str = Field(..., description="Course code (e.g., CS101)")
     title: str = Field(..., description="Course title")
+    course_name_en: Optional[str] = Field(None, description="Course name in English")
+    course_name_vi: Optional[str] = Field(None, description="Course name in Vietnamese")
+    credit_points: Optional[str] = Field(None, description="Credit points")
+    prior_courses: Optional[str] = Field(None, description="Prior courses or prerequisites")
+    course_description: Optional[str] = Field(None, description="Course description")
+    course_goals: Optional[List[str]] = Field(None, description="Course goals/outcomes list")
     content: str = Field(..., description="Full course content for full-text search")
     summary: str = Field(..., description="Short course description for display")
 
@@ -55,6 +61,12 @@ class CourseDetailResponse(BaseModel):
     title: str
     summary: str
     content: str = Field(..., description="Full course content")
+    course_name_en: Optional[str] = None
+    course_name_vi: Optional[str] = None
+    credit_points: Optional[str] = None
+    prior_courses: Optional[str] = None
+    course_description: Optional[str] = None
+    course_goals: Optional[List[str]] = None
 
     class Config:
         json_schema_extra = {

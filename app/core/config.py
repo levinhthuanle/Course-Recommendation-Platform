@@ -91,6 +91,32 @@ class Settings(BaseSettings):
         description="Gemini model to use (gemini-1.5-flash, gemini-1.5-pro, etc.)"
     )
 
+    # Auth Settings
+    auth_db_path: str = Field(
+        default="./app/data/auth.db",
+        description="SQLite database path for auth users"
+    )
+    jwt_secret: str = Field(
+        default="change-me",
+        description="JWT secret key"
+    )
+    jwt_algorithm: str = Field(
+        default="HS256",
+        description="JWT signing algorithm"
+    )
+    jwt_exp_minutes: int = Field(
+        default=60 * 24,
+        description="JWT expiration time in minutes"
+    )
+    admin_email: str = Field(
+        default="",
+        description="Bootstrap admin email"
+    )
+    admin_password: str = Field(
+        default="",
+        description="Bootstrap admin password"
+    )
+
 
 @lru_cache()
 def get_settings() -> Settings:

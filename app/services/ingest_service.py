@@ -214,6 +214,194 @@ class IngestionService:
         
         return text
 
+    def _normalize_page_text(self, text: str) -> str:
+        """Normalize page text while preserving line breaks for section parsing."""
+        if not text:
+            return ""
+
+        # Remove control characters
+        text = re.sub(r"[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]", "", text)
+        text = text.replace("\r", "\n")
+        text = self._fix_missing_spaces(text)
+        text = self._fix_broken_text(text)
+        # Normalize spaces but keep newlines
+        text = re.sub(r"[ \t]+", " ", text)
+        text = re.sub(r"\n{2,}", "\n", text)
+        return text.strip()
+
+    def _extract_line_value(self, text: str, patterns: List[str]) -> str:
+        """Extract a single line value using multiple regex patterns."""
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return self._clean_text(match.group(1))
+        return ""
+
+    def _extract_section(self, text: str, start_patterns: List[str], end_patterns: List[str]) -> str:
+        """Extract a section between headings (case-insensitive)."""
+        start = "|".join(start_patterns)
+        end = "|".join(end_patterns)
+        pattern = rf"(?:{start})\s*(.+?)(?=(?:{end})|$)"
+        match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+        if not match:
+            return ""
+
+        section = match.group(1).strip()
+        section = re.sub(r"[ \t]+", " ", section)
+        section = re.sub(r"\n{2,}", "\n", section)
+        return section.strip()
+
+    def _parse_course_goals(self, text: str) -> List[str]:
+        """Parse course goals into a list from a section string."""
+        if not text:
+            return []
+
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
+        goals: List[str] = []
+        current = ""
+
+        for line in lines:
+            numbered = re.match(r"^\s*(\d+)[\.|\)]\s*(.+)$", line)
+            if numbered:
+                if current:
+                    goals.append(self._clean_text(current))
+                current = numbered.group(2)
+                continue
+
+            if current:
+                current = f"{current} {line}".strip()
+            else:
+                current = line
+
+        if current:
+            goals.append(self._clean_text(current))
+
+        return goals
+
+    def _build_document_from_page(self, page_text: str, source_file: str, page_index: int) -> Optional[CourseDocument]:
+        """Build a CourseDocument from a single page of a multi-course PDF."""
+        normalized = self._normalize_page_text(page_text)
+        if not normalized or len(normalized) < 100:
+            return None
+
+        lines = [line.strip() for line in normalized.split("\n") if line.strip()]
+
+        course_code = ""
+        title = ""
+        for line in lines[:12]:
+            parsed = self._parse_course_header(line)
+            if parsed:
+                course_code, title = parsed
+                break
+
+        course_id = self._extract_line_value(
+            normalized,
+            [r"Course\s*ID\s*\(English\)\s*:\s*(.+)", r"Course\s*ID\s*:\s*(.+)"],
+        )
+        if course_id:
+            course_code = course_code or course_id
+
+        course_name_en = self._extract_line_value(
+            normalized,
+            [r"Course\s*name\s*\(English\)\s*:\s*(.+)", r"Course\s*name\s*\(ENG\)\s*:\s*(.+)"],
+        )
+        course_name_vi = self._extract_line_value(
+            normalized,
+            [r"Course\s*name\s*\(Vietnamese\)\s*:\s*(.+)", r"Course\s*name\s*\(VI\)\s*:\s*(.+)"],
+        )
+
+        if course_name_en:
+            title = course_name_en
+
+        credit_points = self._extract_line_value(
+            normalized,
+            [r"Credit\s*points?\s*:\s*(.+)"],
+        )
+        prior_courses = self._extract_line_value(
+            normalized,
+            [r"Prior\s*course\(s\)\s*:\s*(.+)", r"Prerequisite\(s\)\s*:\s*(.+)"],
+        )
+
+        course_description = self._extract_section(
+            normalized,
+            [r"COURSE\s*DESCRIPTION"],
+            [
+                r"COURSE\s*GOALS",
+                r"COURSE\s*OUTCOMES",
+                r"REQUIRED\s+AND\s+RECOMMENDED\s+READING",
+                r"REQUIRED\s+READING",
+            ],
+        )
+
+        goals_section = self._extract_section(
+            normalized,
+            [r"COURSE\s*GOALS", r"COURSE\s*OUTCOMES"],
+            [r"REQUIRED\s+AND\s+RECOMMENDED\s+READING", r"REQUIRED\s+READING"],
+        )
+        course_goals = self._parse_course_goals(goals_section)
+
+        if not course_code:
+            course_code = f"PAGE{page_index:03d}"
+        if not title:
+            title = course_name_en or course_name_vi or f"Course Page {page_index}"
+
+        summary = course_description or self._extract_summary(normalized)
+        content_parts = [
+            course_code,
+            title,
+            course_name_vi,
+            credit_points,
+            prior_courses,
+            course_description,
+            " ".join(course_goals) if course_goals else "",
+        ]
+        content = self._clean_text("\n".join([p for p in content_parts if p]))
+
+        doc_id = self._generate_document_id(course_code, title)
+
+        return CourseDocument(
+            id=doc_id,
+            course_code=course_code,
+            title=title,
+            course_name_en=course_name_en or title,
+            course_name_vi=course_name_vi or None,
+            credit_points=credit_points or None,
+            prior_courses=prior_courses or None,
+            course_description=course_description or None,
+            course_goals=course_goals or None,
+            content=content,
+            summary=summary,
+        )
+
+    def _split_course_pdf_by_page(self, pdf_path: Path) -> List[CourseDocument]:
+        """Split a single multi-page PDF into course documents by page."""
+        documents: List[CourseDocument] = []
+
+        try:
+            reader = PdfReader(pdf_path)
+        except Exception as e:
+            logger.error(f"Failed to read PDF {pdf_path.name}: {e}")
+            return documents
+
+        for page_index, page in enumerate(reader.pages, start=1):
+            try:
+                try:
+                    text = page.extract_text(extraction_mode="layout")
+                except Exception:
+                    text = page.extract_text()
+
+                if not text:
+                    continue
+
+                doc = self._build_document_from_page(text, pdf_path.name, page_index)
+                if doc:
+                    documents.append(doc)
+            except Exception as e:
+                logger.warning(f"Failed to parse page {page_index} of {pdf_path.name}: {e}")
+
+        logger.info(f"Parsed {len(documents)} courses from {pdf_path.name} by page")
+        return documents
+
     def _parse_course_header(self, line: str) -> Optional[Tuple[str, str]]:
         """
         Parse a course header line.
@@ -452,9 +640,24 @@ class IngestionService:
             documents: List[CourseDocument] = []
             failed_files: List[str] = []
 
+            use_page_split = len(pdf_files) == 1
+
             for pdf_path in pdf_files:
                 try:
                     logger.info(f"Processing {pdf_path.name}...")
+                    if use_page_split:
+                        page_docs = self._split_course_pdf_by_page(pdf_path)
+                        if page_docs:
+                            documents.extend(page_docs)
+                            logger.info(f"  -> Page split into {len(page_docs)} courses")
+                            continue
+                    else:
+                        page_docs = self._split_course_pdf_by_page(pdf_path)
+                        if len(page_docs) == 1:
+                            documents.extend(page_docs)
+                            logger.info(f"  -> Single page parsed into 1 course")
+                            continue
+
                     content = self._extract_text_from_pdf(pdf_path)
 
                     if not content or len(content) < 100:
@@ -534,6 +737,13 @@ class IngestionService:
             Tuple of (CourseDocument or None, success_flag)
         """
         try:
+            page_docs = self._split_course_pdf_by_page(pdf_path)
+            if page_docs:
+                docs_with_embeddings = self._add_embeddings_to_documents(page_docs)
+                self.search_service.add_documents(docs_with_embeddings)
+                logger.info(f"Indexed {len(page_docs)} courses from {pdf_path.name}")
+                return page_docs[0], True
+
             content = self._extract_text_from_pdf(pdf_path)
 
             if not content:

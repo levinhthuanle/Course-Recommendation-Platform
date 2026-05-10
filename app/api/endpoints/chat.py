@@ -6,7 +6,9 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
+from app.core.auth import get_current_user
 from app.core.config import Settings, get_settings
+from app.models.user import UserPublic
 from app.services.chat_service import ChatService
 from app.services.search_service import SearchService
 
@@ -64,6 +66,7 @@ def get_chat_service(
 async def chat_status(
     settings: Settings = Depends(get_settings),
     chat_service: ChatService = Depends(get_chat_service),
+    current_user: UserPublic = Depends(get_current_user),
 ) -> ChatStatusResponse:
     """
     Check if chat service is available and properly configured.
@@ -81,6 +84,7 @@ async def chat_status(
 async def chat(
     request: ChatRequest,
     chat_service: ChatService = Depends(get_chat_service),
+    current_user: UserPublic = Depends(get_current_user),
 ) -> ChatResponse:
     """
     Send a message to the AI assistant and get a response.

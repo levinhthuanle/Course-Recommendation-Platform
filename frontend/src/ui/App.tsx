@@ -19,9 +19,21 @@ type CourseDetail = {
   title: string
   summary: string
   content: string
+  course_name_en?: string
+  course_name_vi?: string
+  credit_points?: string
+  prior_courses?: string
+  course_description?: string
+  course_goals?: string[]
 }
 
-type Mode = 'home' | 'search' | 'chat'
+type User = {
+  id: number
+  email: string
+  role: 'user' | 'admin'
+}
+
+type Mode = 'home' | 'search' | 'chat' | 'admin'
 type Theme = 'light' | 'dark'
 type Language = 'vi' | 'en'
 
@@ -59,17 +71,43 @@ const translations = {
     coursesFound: 'khóa học được tìm thấy',
     // Modal translations
     close: 'Đóng',
-    courseCode: 'Mã môn',
-    description: 'Mô tả',
-    fullContent: 'Nội dung chi tiết',
-    copyCode: 'Sao chép mã',
-    copied: 'Đã sao chép!',
+    generalInfo: 'THÔNG TIN CHUNG',
+    courseId: 'Mã môn (English)',
+    courseNameEn: 'Tên môn (English)',
+    courseNameVi: 'Tên môn (Vietnamese)',
+    creditPoints: 'Số tín chỉ',
+    priorCourses: 'Môn học trước',
+    courseDescription: 'MÔ TẢ MÔN HỌC',
+    courseGoals: 'MỤC TIÊU MÔN HỌC',
     // Export translations
     exportPDF: 'Xuất PDF',
     exportExcel: 'Xuất Excel',
     exporting: 'Đang xuất...',
+    courseCode: 'Mã môn',
     courseName: 'Tên khóa học',
-    sheetName: 'Khóa học'
+    sheetName: 'Khóa học',
+    // Auth/Admin
+    loginTitle: 'Đăng nhập',
+    registerTitle: 'Đăng ký',
+    emailLabel: 'Email',
+    passwordLabel: 'Mật khẩu',
+    login: 'Đăng nhập',
+    register: 'Tạo tài khoản',
+    switchToLogin: 'Đã có tài khoản? Đăng nhập',
+    switchToRegister: 'Chưa có tài khoản? Đăng ký',
+    logout: 'Đăng xuất',
+    adminPanel: 'Quản trị',
+    ingestAll: 'Ingest all',
+    ingesting: 'Ingesting...',
+    uploadPdf: 'Upload PDF and ingest',
+    uploading: 'Uploading...',
+    chooseFile: 'Choose PDF file',
+    adminSubtitle: 'Manage ingestion and dataset resources',
+    ingestAllDesc: 'Ingest all PDFs in the Resources folder',
+    uploadDesc: 'Upload a PDF and ingest immediately',
+    ingestedFiles: 'Ingested PDFs',
+    noFiles: 'No PDFs found in Resources',
+    authLoading: 'Đang xử lý...'
   },
   en: {
     logoTitle: 'Course Finder',
@@ -104,17 +142,43 @@ const translations = {
     coursesFound: 'course(s) found',
     // Modal translations
     close: 'Close',
-    courseCode: 'Course Code',
-    description: 'Description',
-    fullContent: 'Full Content',
-    copyCode: 'Copy Code',
-    copied: 'Copied!',
+    generalInfo: 'GENERAL INFORMATION',
+    courseId: 'Course ID (English)',
+    courseNameEn: 'Course name (English)',
+    courseNameVi: 'Course name (Vietnamese)',
+    creditPoints: 'Credit points',
+    priorCourses: 'Prior course(s)',
+    courseDescription: 'COURSE DESCRIPTION',
+    courseGoals: 'COURSE GOALS',
     // Export translations
     exportPDF: 'Export PDF',
     exportExcel: 'Export Excel',
     exporting: 'Exporting...',
+    courseCode: 'Course Code',
     courseName: 'Course Name',
-    sheetName: 'Courses'
+    sheetName: 'Courses',
+    // Auth/Admin
+    loginTitle: 'Login',
+    registerTitle: 'Register',
+    emailLabel: 'Email',
+    passwordLabel: 'Password',
+    login: 'Login',
+    register: 'Create account',
+    switchToLogin: 'Already have an account? Login',
+    switchToRegister: 'New here? Register',
+    logout: 'Logout',
+    adminPanel: 'Admin',
+    ingestAll: 'Ingest all',
+    ingesting: 'Ingesting...',
+    uploadPdf: 'Upload PDF and ingest',
+    uploading: 'Uploading...',
+    chooseFile: 'Choose PDF file',
+    adminSubtitle: 'Manage ingestion and dataset resources',
+    ingestAllDesc: 'Ingest all PDFs in the Resources folder',
+    uploadDesc: 'Upload a PDF and ingest immediately',
+    ingestedFiles: 'Ingested PDFs',
+    noFiles: 'No PDFs found in Resources',
+    authLoading: 'Working...'
   }
 }
 
@@ -140,6 +204,18 @@ export default function App() {
   const [results, setResults] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([])
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadLoading, setUploadLoading] = useState(false)
+  const [ingestLoading, setIngestLoading] = useState(false)
+  const [adminMessage, setAdminMessage] = useState<string | null>(null)
+  const [adminFiles, setAdminFiles] = useState<string[]>([])
+  const [adminFilesLoading, setAdminFilesLoading] = useState(false)
   
   // Advanced search options
   const [limit, setLimit] = useState(20)
@@ -161,12 +237,87 @@ export default function App() {
     document.documentElement.setAttribute('lang', language)
   }, [language])
 
+  useEffect(() => {
+    if (mode !== 'admin' || currentUser?.role !== 'admin') return
+    setAdminFilesLoading(true)
+    api.listIngestedFiles()
+      .then((res) => setAdminFiles(res.files || []))
+      .catch(() => setAdminFiles([]))
+      .finally(() => setAdminFilesLoading(false))
+  }, [mode, currentUser])
+
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token')
+    if (!token) return
+
+    api.me()
+      .then((user) => setCurrentUser(user))
+      .catch(() => {
+        localStorage.removeItem('auth_token')
+        setCurrentUser(null)
+      })
+  }, [])
+
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light')
   }
 
   const changeLanguage = (lang: Language) => {
     setLanguage(lang)
+  }
+
+  const handleAuthSubmit = async () => {
+    const email = authEmail.trim()
+    const password = authPassword.trim()
+    if (!email || !password) return
+    setAuthLoading(true)
+    setAuthError(null)
+    try {
+      const response = authMode === 'login'
+        ? await api.login(email, password)
+        : await api.register(email, password)
+      localStorage.setItem('auth_token', response.access_token)
+      setCurrentUser(response.user)
+      setAuthPassword('')
+    } catch (e: any) {
+      setAuthError(e?.message || 'Auth failed')
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('auth_token')
+    setCurrentUser(null)
+    setMode('home')
+  }
+
+  const handleIngestAll = async () => {
+    setIngestLoading(true)
+    setAdminMessage(null)
+    try {
+      const res = await api.ingest(true)
+      setAdminMessage(res?.message || 'Ingest completed')
+    } catch (e: any) {
+      setAdminMessage(e?.message || 'Ingest failed')
+    } finally {
+      setIngestLoading(false)
+    }
+  }
+
+  const handleUploadPdf = async () => {
+    if (!uploadFile) return
+    setUploadLoading(true)
+    setAdminMessage(null)
+    try {
+      const res = await api.uploadPdf(uploadFile)
+      setAdminMessage(res?.message || 'Upload completed')
+      setUploadFile(null)
+    } catch (e: any) {
+      setAdminMessage(e?.message || 'Upload failed')
+    } finally {
+      setUploadLoading(false)
+    }
   }
 
   const doSearch = async (q: string) => {
@@ -336,6 +487,25 @@ export default function App() {
               </svg>
               {t.chatBot}
             </button>
+            {currentUser?.role === 'admin' && (
+              <button 
+                className={`modeButton ${mode === 'admin' ? 'active' : ''}`}
+                onClick={() => setMode('admin')}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 1v4"/>
+                  <path d="M12 19v4"/>
+                  <path d="M4.22 4.22l2.83 2.83"/>
+                  <path d="M16.95 16.95l2.83 2.83"/>
+                  <path d="M1 12h4"/>
+                  <path d="M19 12h4"/>
+                  <path d="M4.22 19.78l2.83-2.83"/>
+                  <path d="M16.95 7.05l2.83-2.83"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                {t.adminPanel}
+              </button>
+            )}
           </div>
 
           <div className="appBarRight">
@@ -366,13 +536,85 @@ export default function App() {
               <option value="vi">Tiếng Việt</option>
               <option value="en">English</option>
             </select>
+            {currentUser && (
+              <div className="userMenu">
+                <span className="userEmail">{currentUser.email}</span>
+                <button className="logoutButton" onClick={handleLogout}>
+                  {t.logout}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </nav>
 
       {/* Main Content */}
       <div className={`container ${mode === 'chat' ? 'chatMode' : ''}`}>
-        {mode === 'home' ? (
+        {!currentUser ? (
+          <div className="authWrapper">
+            <div className="authLayout">
+              <div className="authHero">
+                <div className="authBadge">HCMUS FIT</div>
+                <h2>{t.logoTitle}</h2>
+                <p>{t.homeSubtitle}</p>
+                <div className="authHighlights">
+                  <span>{t.feature1}</span>
+                  <span>{t.feature2}</span>
+                  <span>{t.feature3}</span>
+                </div>
+              </div>
+              <div className="authCard">
+                <div className="authTabs">
+                  <button
+                    className={authMode === 'login' ? 'active' : ''}
+                    onClick={() => setAuthMode('login')}
+                  >
+                    {t.loginTitle}
+                  </button>
+                  <button
+                    className={authMode === 'register' ? 'active' : ''}
+                    onClick={() => setAuthMode('register')}
+                  >
+                    {t.registerTitle}
+                  </button>
+                </div>
+                <h3>{authMode === 'login' ? t.loginTitle : t.registerTitle}</h3>
+                <label className="authField">
+                  <span>{t.emailLabel}</span>
+                  <input
+                    type="email"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    placeholder="you@hcmus.edu.vn"
+                  />
+                </label>
+                <label className="authField">
+                  <span>{t.passwordLabel}</span>
+                  <input
+                    type="password"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    placeholder="••••••••"
+                  />
+                </label>
+                {authError && <div className="authError">{authError}</div>}
+                <button
+                  className="authSubmit"
+                  onClick={handleAuthSubmit}
+                  disabled={authLoading}
+                >
+                  {authLoading ? t.authLoading : authMode === 'login' ? t.login : t.register}
+                </button>
+                <button
+                  className="authToggle"
+                  onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+                >
+                  {authMode === 'login' ? t.switchToRegister : t.switchToLogin}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : mode === 'home' ? (
           <>
             <header className="header">
               <div className="heroIcon">🎓</div>
@@ -453,6 +695,58 @@ export default function App() {
               }} 
             />
           </>
+        ) : mode === 'admin' ? (
+          <div className="adminPanel">
+            <div className="adminHeader">
+              <div>
+                <h2>{t.adminPanel}</h2>
+                <p>{t.adminSubtitle}</p>
+              </div>
+            </div>
+            <div className="adminActions">
+              <div className="adminCard">
+                <h3>{t.ingestAll}</h3>
+                <p>{t.ingestAllDesc}</p>
+                <button onClick={handleIngestAll} disabled={ingestLoading}>
+                  {ingestLoading ? t.ingesting : t.ingestAll}
+                </button>
+              </div>
+              <div className="adminCard adminUpload">
+                <h3>{t.uploadPdf}</h3>
+                <p>{t.uploadDesc}</p>
+                <label className="uploadDrop">
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                  />
+                  <div className="uploadIcon">📄</div>
+                  <div>
+                    <strong>{t.chooseFile}</strong>
+                    <span>{uploadFile ? uploadFile.name : 'PDF (A4) 1 course/trang'}</span>
+                  </div>
+                </label>
+                <button onClick={handleUploadPdf} disabled={!uploadFile || uploadLoading}>
+                  {uploadLoading ? t.uploading : t.uploadPdf}
+                </button>
+              </div>
+              <div className="adminCard adminFiles">
+                <h3>{t.ingestedFiles}</h3>
+                {adminFilesLoading ? (
+                  <div className="adminFilesEmpty">Loading...</div>
+                ) : adminFiles.length === 0 ? (
+                  <div className="adminFilesEmpty">{t.noFiles}</div>
+                ) : (
+                  <ul className="adminFilesList">
+                    {adminFiles.map((file) => (
+                      <li key={file}>{file}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+            {adminMessage && <div className="adminMessage">{adminMessage}</div>}
+          </div>
         ) : (
             <div className="chatContainer">
               <div className={`chatMessages ${chatMessages.length > 0 ? 'hasMessages' : ''}`}>
@@ -544,11 +838,14 @@ export default function App() {
           onClose={closeModal}
           translations={{
             close: t.close,
-            courseCode: t.courseCode,
-            description: t.description,
-            fullContent: t.fullContent,
-            copyCode: t.copyCode,
-            copied: t.copied
+            generalInfo: t.generalInfo,
+            courseId: t.courseId,
+            courseNameEn: t.courseNameEn,
+            courseNameVi: t.courseNameVi,
+            creditPoints: t.creditPoints,
+            priorCourses: t.priorCourses,
+            courseDescription: t.courseDescription,
+            courseGoals: t.courseGoals
           }}
         />
       )}
