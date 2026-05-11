@@ -107,3 +107,13 @@ class AuthService:
                 "SELECT id, email, role, password_hash FROM users WHERE email = ?",
                 (email.lower(),),
             ).fetchone()
+
+    def count_users(self) -> int:
+        with self._get_conn() as conn:
+            return conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
+
+    def count_admins(self) -> int:
+        with self._get_conn() as conn:
+            return conn.execute(
+                "SELECT COUNT(*) AS c FROM users WHERE role = 'admin'"
+            ).fetchone()["c"]

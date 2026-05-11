@@ -11,6 +11,8 @@ from app.core.auth import get_current_user, require_admin
 from app.core.config import Settings, get_settings
 from app.models.user import UserPublic
 from app.models.course import CourseDetailResponse, HealthResponse, IngestionStatus, SearchResponse
+from app.services.analytics_service import AnalyticsService
+from app.services.auth_service import AuthService
 from app.services.ingest_service import IngestionService
 from app.services.search_service import SearchService
 
@@ -34,6 +36,10 @@ def get_ingestion_service(
 ) -> IngestionService:
     """Get ingestion service instance."""
     return IngestionService(settings, search_service)
+
+
+def get_analytics_service(settings: Settings = Depends(get_settings)) -> AnalyticsService:
+    return AnalyticsService(settings)
 
 
 @router.get("/health", response_model=HealthResponse, summary="Health check")
@@ -71,6 +77,7 @@ async def search_courses(
     settings: Settings = Depends(get_settings),
     search_service: SearchService = Depends(get_search_service),
     current_user: UserPublic = Depends(get_current_user),
+    analytics_service: AnalyticsService = Depends(get_analytics_service),
 ) -> SearchResponse:
     """
     Search for courses based on a query string.
@@ -101,6 +108,8 @@ async def search_courses(
             filters = f'course_code = "{course_code}"'
 
         logger.info(f"Searching for: '{q}' (limit={limit}, offset={offset}, semantic_ratio={semantic_ratio})")
+
+        analytics_service.log_query("search", q)
 
         # Only use hybrid search if embedder is configured
         # For now, default to keyword search until embedder is confirmed working
@@ -171,10 +180,12 @@ async def get_course_detail(
             content=document.get("content", ""),
             course_name_en=document.get("course_name_en"),
             course_name_vi=document.get("course_name_vi"),
+            relation_to_curriculum=document.get("relation_to_curriculum"),
             credit_points=document.get("credit_points"),
             prior_courses=document.get("prior_courses"),
             course_description=document.get("course_description"),
             course_goals=document.get("course_goals"),
+            required_reading=document.get("required_reading"),
         )
 
     except HTTPException:
@@ -295,7 +306,7 @@ async def upload_and_ingest_pdf(
 
 
 @router.get(
-    "/ingest/files",
+    "/admin/files",
     summary="List ingested PDF files (admin only)",
 )
 async def list_ingested_files(
@@ -306,8 +317,107 @@ async def list_ingested_files(
     if not resources_path.exists():
         return {"files": []}
 
-    files = sorted([p.name for p in resources_path.glob("*.pdf")])
+    files = []
+    for path in sorted(resources_path.glob("*.pdf")):
+        stat = path.stat()
+        files.append({
+            "name": path.name,
+            "size": stat.st_size,
+            "modified": int(stat.st_mtime),
+        })
+
     return {"files": files}
+
+
+@router.delete(
+    "/admin/files/{filename}",
+    summary="Delete an ingested PDF file (admin only)",
+)
+async def delete_ingested_file(
+    filename: str,
+    settings: Settings = Depends(get_settings),
+    ingestion_service: IngestionService = Depends(get_ingestion_service),
+    search_service: SearchService = Depends(get_search_service),
+    admin_user: UserPublic = Depends(require_admin),
+):
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid filename")
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF files are supported")
+
+    resources_path = Path(settings.resources_path)
+    target = (resources_path / filename).resolve()
+    if resources_path.resolve() not in target.parents:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid path")
+    if not target.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
+
+    try:
+        target.unlink()
+        # Reindex after delete (as requested)
+        search_service.delete_all_documents()
+        ingestion_service.ingest_all_pdfs()
+        return {"message": "File deleted and index rebuilt", "filename": filename}
+    except Exception as e:
+        logger.error(f"Failed to delete file {filename}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Delete failed")
+
+
+@router.delete(
+    "/admin/index/clear-file/{filename}",
+    summary="Delete indexed data for a PDF without removing the file",
+)
+async def clear_index_for_file(
+    filename: str,
+    search_service: SearchService = Depends(get_search_service),
+    admin_user: UserPublic = Depends(require_admin),
+):
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid filename")
+    if not filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PDF files are supported")
+
+    try:
+        deleted = search_service.delete_documents_by_source_file(filename)
+        return {"message": "Index cleared", "filename": filename, "deleted": deleted}
+    except Exception as e:
+        logger.error(f"Failed to clear index for {filename}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Index clear failed")
+
+
+@router.get(
+    "/admin/stats",
+    summary="Admin dashboard stats",
+)
+async def get_admin_stats(
+    settings: Settings = Depends(get_settings),
+    admin_user: UserPublic = Depends(require_admin),
+    analytics_service: AnalyticsService = Depends(get_analytics_service),
+):
+    auth_service = AuthService(settings)
+    counts = analytics_service.get_counts()
+    top_terms = analytics_service.get_top_terms()
+
+    return {
+        "users": {
+            "total": auth_service.count_users(),
+            "admins": auth_service.count_admins(),
+        },
+        "queries": counts,
+        "top_terms": top_terms,
+    }
+
+
+@router.get(
+    "/admin/usage",
+    summary="Admin usage timeline",
+)
+async def get_admin_usage(
+    days: int = Query(7, ge=1, le=90),
+    admin_user: UserPublic = Depends(require_admin),
+    analytics_service: AnalyticsService = Depends(get_analytics_service),
+):
+    return {"days": analytics_service.get_daily_counts(days=days)}
 
 
 @router.get(

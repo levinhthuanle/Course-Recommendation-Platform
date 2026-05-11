@@ -71,7 +71,7 @@ export function ResultList({
             )}
           </div>
           <h3 className="title">{truncate(r.title, 120)}</h3>
-          <p className="summary">{truncate(r.summary, 280)}</p>
+          <p className="summary">{truncate(r.summary, 520)}</p>
         </article>
       ))}
     </div>

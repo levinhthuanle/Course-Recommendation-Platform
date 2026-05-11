@@ -122,7 +122,7 @@ class IngestionService:
         title = self._fix_broken_text(title)
         return title.strip()
 
-    def _extract_summary(self, content: str, max_length: int = 300) -> str:
+    def _extract_summary(self, content: str, max_length: int = 700) -> str:
         """Extract a clean summary from course content."""
         if not content:
             return ""
@@ -237,6 +237,21 @@ class IngestionService:
                 return self._clean_text(match.group(1))
         return ""
 
+    def _extract_field_from_lines(self, lines: List[str], labels: List[str]) -> str:
+        """Extract a field value from labeled lines, allowing value on next line."""
+        labels_lower = [label.lower() for label in labels]
+        for idx, line in enumerate(lines):
+            lower = line.lower()
+            for label in labels_lower:
+                if lower.startswith(label):
+                    value = ""
+                    if ":" in line:
+                        value = line.split(":", 1)[1].strip()
+                    if not value and idx + 1 < len(lines):
+                        value = lines[idx + 1].strip()
+                    return self._clean_text(value)
+        return ""
+
     def _extract_section(self, text: str, start_patterns: List[str], end_patterns: List[str]) -> str:
         """Extract a section between headings (case-insensitive)."""
         start = "|".join(start_patterns)
@@ -278,6 +293,35 @@ class IngestionService:
 
         return goals
 
+    def _parse_numbered_list(self, text: str) -> List[str]:
+        """Parse numbered syllabus list items, preserving wrapped lines."""
+        if not text:
+            return []
+
+        text = re.sub(r"\n\s*Faculty\s+of\s+Information\s+Technology.*$", "", text, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r"\n\s*\d+\s*$", "", text)
+        lines = [line.strip() for line in text.split("\n") if line.strip()]
+        items: List[str] = []
+        current = ""
+
+        for line in lines:
+            numbered = re.match(r"^\s*(?:\[(\d+)\]|(\d+)[\.\)])\s*(.+)$", line)
+            if numbered:
+                if current:
+                    items.append(self._clean_text(current))
+                current = numbered.group(3)
+                continue
+
+            if current:
+                current = f"{current} {line}".strip()
+            else:
+                current = line
+
+        if current:
+            items.append(self._clean_text(current))
+
+        return items
+
     def _build_document_from_page(self, page_text: str, source_file: str, page_index: int) -> Optional[CourseDocument]:
         """Build a CourseDocument from a single page of a multi-course PDF."""
         normalized = self._normalize_page_text(page_text)
@@ -294,32 +338,36 @@ class IngestionService:
                 course_code, title = parsed
                 break
 
-        course_id = self._extract_line_value(
-            normalized,
-            [r"Course\s*ID\s*\(English\)\s*:\s*(.+)", r"Course\s*ID\s*:\s*(.+)"],
+        course_id = self._extract_field_from_lines(
+            lines,
+            ["Course ID (English)", "Course ID"],
         )
         if course_id:
             course_code = course_code or course_id
 
-        course_name_en = self._extract_line_value(
-            normalized,
-            [r"Course\s*name\s*\(English\)\s*:\s*(.+)", r"Course\s*name\s*\(ENG\)\s*:\s*(.+)"],
+        course_name_en = self._extract_field_from_lines(
+            lines,
+            ["Course name (English)", "Course name (ENG)", "Course name (English):"],
         )
-        course_name_vi = self._extract_line_value(
-            normalized,
-            [r"Course\s*name\s*\(Vietnamese\)\s*:\s*(.+)", r"Course\s*name\s*\(VI\)\s*:\s*(.+)"],
+        course_name_vi = self._extract_field_from_lines(
+            lines,
+            ["Course name (Vietnamese)", "Course name (VI)", "Course name (Vietnamese):"],
         )
 
         if course_name_en:
             title = course_name_en
 
-        credit_points = self._extract_line_value(
-            normalized,
-            [r"Credit\s*points?\s*:\s*(.+)"],
+        relation_to_curriculum = self._extract_field_from_lines(
+            lines,
+            ["Relation to curriculum"],
         )
-        prior_courses = self._extract_line_value(
-            normalized,
-            [r"Prior\s*course\(s\)\s*:\s*(.+)", r"Prerequisite\(s\)\s*:\s*(.+)"],
+        credit_points = self._extract_field_from_lines(
+            lines,
+            ["Credit points", "Credit point"],
+        )
+        prior_courses = self._extract_field_from_lines(
+            lines,
+            ["Prior course(s)", "Prerequisite(s)"],
         )
 
         course_description = self._extract_section(
@@ -339,23 +387,43 @@ class IngestionService:
             [r"REQUIRED\s+AND\s+RECOMMENDED\s+READING", r"REQUIRED\s+READING"],
         )
         course_goals = self._parse_course_goals(goals_section)
+        reading_section = self._extract_section(
+            normalized,
+            [r"REQUIRED\s+AND\s+RECOMMENDED\s+READING", r"REQUIRED\s+READING"],
+            [r"Faculty\s+of\s+Information\s+Technology", r"VNUHCM", r"\n\s*\d+\s*$"],
+        )
+        required_reading = self._parse_numbered_list(reading_section)
 
-        if not course_code:
-            course_code = f"PAGE{page_index:03d}"
         if not title:
-            title = course_name_en or course_name_vi or f"Course Page {page_index}"
+            title = course_name_en or course_name_vi or ""
 
-        summary = course_description or self._extract_summary(normalized)
-        content_parts = [
+        # Skip invalid placeholders like "Course Page X"
+        if not title and not course_name_en and not course_name_vi:
+            return None
+        if title.lower().startswith("course page"):
+            return None
+        if course_code.lower().startswith("page"):
+            return None
+
+        summary_source = course_description or self._extract_summary(normalized)
+        summary = self._clean_text(summary_source)
+        if len(summary) > 700:
+            summary = summary[:700].rstrip() + "..."
+
+        structured_parts = [
             course_code,
             title,
             course_name_vi,
+            relation_to_curriculum,
             credit_points,
             prior_courses,
             course_description,
             " ".join(course_goals) if course_goals else "",
+            " ".join(required_reading) if required_reading else "",
         ]
-        content = self._clean_text("\n".join([p for p in content_parts if p]))
+        structured_content = self._clean_text("\n".join([p for p in structured_parts if p]))
+        full_page_content = self._clean_text(normalized)
+        content = full_page_content if len(full_page_content) > len(structured_content) else structured_content
 
         doc_id = self._generate_document_id(course_code, title)
 
@@ -363,12 +431,15 @@ class IngestionService:
             id=doc_id,
             course_code=course_code,
             title=title,
+            source_file=source_file,
             course_name_en=course_name_en or title,
             course_name_vi=course_name_vi or None,
+            relation_to_curriculum=relation_to_curriculum or None,
             credit_points=credit_points or None,
             prior_courses=prior_courses or None,
             course_description=course_description or None,
             course_goals=course_goals or None,
+            required_reading=required_reading or None,
             content=content,
             summary=summary,
         )
@@ -497,6 +568,7 @@ class IngestionService:
                     id=doc_id,
                     course_code=code,
                     title=title,
+                    source_file=source_file,
                     content=section_content,
                     summary=summary,
                 )
@@ -552,6 +624,7 @@ class IngestionService:
             id=doc_id,
             course_code=course_code,
             title=title,
+            source_file=pdf_path.name,
             content=content,
             summary=summary,
         )
@@ -737,6 +810,9 @@ class IngestionService:
             Tuple of (CourseDocument or None, success_flag)
         """
         try:
+            self.search_service.get_or_create_index()
+            self.search_service.configure_index_settings()
+
             page_docs = self._split_course_pdf_by_page(pdf_path)
             if page_docs:
                 docs_with_embeddings = self._add_embeddings_to_documents(page_docs)

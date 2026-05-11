@@ -8,10 +8,12 @@ type CourseDetail = {
   content: string
   course_name_en?: string
   course_name_vi?: string
+  relation_to_curriculum?: string
   credit_points?: string
   prior_courses?: string
   course_description?: string
   course_goals?: string[]
+  required_reading?: string[]
 }
 
 type Props = {
@@ -24,10 +26,13 @@ type Props = {
     courseId: string
     courseNameEn: string
     courseNameVi: string
+    relationToCurriculum?: string
     creditPoints: string
     priorCourses: string
     courseDescription: string
     courseGoals: string
+    requiredReading?: string
+    fullContent?: string
   }
 }
 
@@ -41,10 +46,13 @@ export function CourseDetailModal({
     courseId: 'Course ID (English)',
     courseNameEn: 'Course name (English)',
     courseNameVi: 'Course name (Vietnamese)',
+    relationToCurriculum: 'Relation to curriculum',
     creditPoints: 'Credit points',
     priorCourses: 'Prior course(s)',
     courseDescription: 'COURSE DESCRIPTION',
-    courseGoals: 'COURSE GOALS'
+    courseGoals: 'COURSE GOALS',
+    requiredReading: 'REQUIRED AND RECOMMENDED READING',
+    fullContent: 'FULL SYLLABUS CONTENT'
   }
 }: Props) {
   // Close on Escape key
@@ -64,6 +72,12 @@ export function CourseDetailModal({
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose()
   }
+
+  const fullContent = course?.content?.trim()
+  const description = course?.course_description || course?.summary || ''
+  const shouldShowFullContent = Boolean(
+    fullContent && fullContent.length > description.length + 80
+  )
 
   return (
     <div className="modalBackdrop" onClick={handleBackdropClick}>
@@ -120,6 +134,12 @@ export function CourseDetailModal({
                       <span>{course.credit_points}</span>
                     </div>
                   )}
+                  {course.relation_to_curriculum && (
+                    <div className="a4InfoRow">
+                      <span>{translations.relationToCurriculum}:</span>
+                      <span>{course.relation_to_curriculum}</span>
+                    </div>
+                  )}
                   {course.prior_courses && (
                     <div className="a4InfoRow">
                       <span>{translations.priorCourses}:</span>
@@ -144,6 +164,29 @@ export function CourseDetailModal({
                       <li key={idx}>{goal}</li>
                     ))}
                   </ol>
+                </div>
+              )}
+
+              {course.required_reading && course.required_reading.length > 0 && (
+                <div className="a4Section">
+                  <div className="a4SectionTitle">{translations.requiredReading}</div>
+                  <ol className="a4List a4ReadingList">
+                    {course.required_reading.map((item, idx) => (
+                      <li key={idx}>{item}</li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {shouldShowFullContent && (
+                <div className="a4Section">
+                  <div className="a4SectionTitle">{translations.fullContent}</div>
+                  <div className="a4RawContent">
+                    {fullContent!.split(/\n{2,}|(?<=\.)\s+(?=[A-Z0-9])/).map((paragraph, idx) => {
+                      const clean = paragraph.trim()
+                      return clean ? <p key={idx}>{clean}</p> : null
+                    })}
+                  </div>
                 </div>
               )}
             </div>

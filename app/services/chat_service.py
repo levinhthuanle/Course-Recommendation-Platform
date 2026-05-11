@@ -206,6 +206,19 @@ English keywords:"""
             context_parts = [f"Dưới đây là thông tin {len(all_courses)} khóa học liên quan:\n"]
             
             for i, course in enumerate(all_courses[:10], 1):  # Limit to 10 courses
+                full_course = None
+                course_id = getattr(course, 'id', None)
+                if course_id:
+                    try:
+                        full_course = self.search_service.get_document_by_id(course_id)
+                    except Exception as e:
+                        logger.warning(f"Could not load full course document {course_id}: {e}")
+
+                full_content = ""
+                if full_course:
+                    full_content = full_course.get("content", "") or ""
+                if not full_content and hasattr(course, 'content'):
+                    full_content = course.content or ""
                 course_info = f"""
 ---
 **Khóa học {i}:**
@@ -213,9 +226,8 @@ English keywords:"""
 - Tên môn: {course.title or 'N/A'}
 - Mô tả: {course.summary or 'Không có mô tả'}
 """
-                # Include full content if available (truncated)
-                if hasattr(course, 'content') and course.content:
-                    content_preview = course.content[:800] + "..." if len(course.content) > 800 else course.content
+                if full_content:
+                    content_preview = full_content[:1800] + "..." if len(full_content) > 1800 else full_content
                     course_info += f"- Nội dung chi tiết: {content_preview}\n"
                 
                 context_parts.append(course_info)

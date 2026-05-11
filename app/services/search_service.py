@@ -126,11 +126,26 @@ class SearchService:
             )
 
             # Configure filterable attributes
-            self.index.update_filterable_attributes(["course_code"])
+            self.index.update_filterable_attributes(["course_code", "source_file"])
 
             # Configure displayed attributes
             self.index.update_displayed_attributes(
-                ["id", "course_code", "title", "summary"]
+                [
+                    "id",
+                    "course_code",
+                    "title",
+                    "summary",
+                    "content",
+                    "source_file",
+                    "course_name_en",
+                    "course_name_vi",
+                    "relation_to_curriculum",
+                    "credit_points",
+                    "prior_courses",
+                    "course_description",
+                    "course_goals",
+                    "required_reading",
+                ]
             )
 
             # Configure embedder for hybrid search (Meilisearch v1.6+)
@@ -277,6 +292,37 @@ class SearchService:
             logger.error(f"Failed to get index stats: {e}")
             raise
 
+    def delete_documents_by_source_file(self, source_file: str) -> int:
+        if not self.index:
+            self.get_or_create_index()
+
+        deleted = 0
+        offset = 0
+        limit = 1000
+
+        while True:
+            results = self.index.search(
+                "",
+                {
+                    "limit": limit,
+                    "offset": offset,
+                    "attributesToRetrieve": ["id"],
+                    "filter": f'source_file = "{source_file}"',
+                },
+            )
+            hits = results.get("hits", [])
+            if not hits:
+                break
+
+            ids = [hit.get("id") for hit in hits if hit.get("id")]
+            if ids:
+                self.index.delete_documents(ids)
+                deleted += len(ids)
+
+            offset += limit
+
+        return deleted
+
     def delete_all_documents(self) -> Dict:
         """
         Delete all documents from the index.
@@ -343,6 +389,8 @@ class SearchService:
                     "title": getattr(document, 'title', ''),
                     "summary": getattr(document, 'summary', ''),
                     "content": getattr(document, 'content', ''),
+                    "relation_to_curriculum": getattr(document, 'relation_to_curriculum', None),
+                    "required_reading": getattr(document, 'required_reading', None),
                 }
         except MeilisearchApiError as e:
             if "document_not_found" in str(e):

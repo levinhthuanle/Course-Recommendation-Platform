@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from app.core.auth import get_current_user
 from app.core.config import Settings, get_settings
 from app.models.user import UserPublic
+from app.services.analytics_service import AnalyticsService
 from app.services.chat_service import ChatService
 from app.services.search_service import SearchService
 
@@ -62,6 +63,10 @@ def get_chat_service(
     return ChatService(settings, search_service)
 
 
+def get_analytics_service(settings: Settings = Depends(get_settings)) -> AnalyticsService:
+    return AnalyticsService(settings)
+
+
 @router.get("/chat/status", response_model=ChatStatusResponse, summary="Chat service status")
 async def chat_status(
     settings: Settings = Depends(get_settings),
@@ -85,6 +90,7 @@ async def chat(
     request: ChatRequest,
     chat_service: ChatService = Depends(get_chat_service),
     current_user: UserPublic = Depends(get_current_user),
+    analytics_service: AnalyticsService = Depends(get_analytics_service),
 ) -> ChatResponse:
     """
     Send a message to the AI assistant and get a response.
@@ -109,6 +115,8 @@ async def chat(
         )
 
     try:
+        analytics_service.log_query("chat", request.message)
+
         # Convert history to dict format
         history = None
         if request.history:

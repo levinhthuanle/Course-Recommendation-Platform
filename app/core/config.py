@@ -96,6 +96,10 @@ class Settings(BaseSettings):
         default="./app/data/auth.db",
         description="SQLite database path for auth users"
     )
+    analytics_db_path: str = Field(
+        default="./app/data/analytics.db",
+        description="SQLite database path for analytics"
+    )
     jwt_secret: str = Field(
         default="change-me",
         description="JWT secret key"

@@ -34,7 +34,13 @@ export const api = {
   search: (q: string, limit = 20, semanticRatio = 0.5) => 
     fetchJson(`/api/v1/search?q=${encodeURIComponent(q)}&limit=${limit}&semantic_ratio=${semanticRatio}`),
   ingest: (force = false) => fetchJson(`/api/v1/ingest?force_reindex=${force}`, { method: 'POST' }),
-  listIngestedFiles: () => fetchJson('/api/v1/ingest/files'),
+  listAdminFiles: () => fetchJson('/api/v1/admin/files'),
+  getAdminStats: () => fetchJson('/api/v1/admin/stats'),
+  getAdminUsage: (days = 7) => fetchJson(`/api/v1/admin/usage?days=${days}`),
+  deleteAdminFile: (filename: string) =>
+    fetchJson(`/api/v1/admin/files/${encodeURIComponent(filename)}`, { method: 'DELETE' }),
+  clearAdminIndexForFile: (filename: string) =>
+    fetchJson(`/api/v1/admin/index/clear-file/${encodeURIComponent(filename)}`, { method: 'DELETE' }),
   uploadPdf: async (file: File) => {
     const token = localStorage.getItem('auth_token') || ''
     const form = new FormData()
