@@ -168,15 +168,10 @@ body {
 .logoIcon {
   width: 40px;
   height: 40px;
-  background: linear-gradient(135deg, #FFD042, #F5B800, #FF8C00);
-  background-size: 200% 200%;
+  object-fit: contain;
+  background: var(--bg-secondary);
   border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  box-shadow: 0 4px 12px rgba(245, 184, 0, 0.4);
-  animation: gradientShift 3s ease infinite;
+  box-shadow: 0 4px 12px rgba(245, 184, 0, 0.18);
 }
 
 @keyframes gradientShift {
@@ -333,6 +328,15 @@ body {
   justify-content: center;
   gap: 16px;
   color: var(--text);
+}
+
+.authLogo {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  border-radius: 16px;
+  background: var(--bg-secondary);
+  box-shadow: 0 10px 24px rgba(245, 184, 0, 0.18);
 }
 
 .authHero h2 {
@@ -1130,15 +1134,10 @@ body {
   width: 80px;
   height: 80px;
   margin: 0 auto 24px;
-  background: linear-gradient(135deg, #FFD042, #F5B800, #FF8C00);
-  background-size: 200% 200%;
+  object-fit: contain;
+  background: var(--bg-secondary);
   border-radius: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 48px;
-  box-shadow: 0 8px 24px rgba(245, 184, 0, 0.4);
-  animation: gradientShift 3s ease infinite;
+  box-shadow: 0 8px 24px rgba(245, 184, 0, 0.18);
 }
 
 .header h1 {
@@ -1952,7 +1951,6 @@ body {
   .heroIcon {
     width: 64px;
     height: 64px;
-    font-size: 36px;
   }
 
   .search {

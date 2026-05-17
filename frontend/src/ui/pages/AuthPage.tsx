@@ -29,6 +29,7 @@ export function AuthPage({
     <div className="authWrapper">
       <div className="authLayout">
         <div className="authHero">
+          <img className="authLogo" src="/logo.png" alt="" />
           <div className="authBadge">HCMUS FIT</div>
           <h2>{t.logoTitle}</h2>
           <p>{t.homeSubtitle}</p>

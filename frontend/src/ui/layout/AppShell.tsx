@@ -32,7 +32,7 @@ export function AppShell({
         <div className="appBarContent">
           <div className="appBarLeft">
             <div className="logo">
-              <div className="logoIcon">CF</div>
+              <img className="logoIcon" src="/logo.png" alt="" />
               <div className="logoText">
                 <div className="logoTitle">{t.logoTitle}</div>
                 <div className="logoSubtitle">{t.logoSubtitle}</div>

@@ -10,7 +10,7 @@ export function HomePage({ t, onOpenChat, onOpenSearch }: Props) {
   return (
     <>
       <header className="header">
-        <div className="heroIcon">CF</div>
+        <img className="heroIcon" src="/logo.png" alt="" />
         <h1>{t.homeTitle}</h1>
         <p>{t.homeSubtitle}</p>
       </header>

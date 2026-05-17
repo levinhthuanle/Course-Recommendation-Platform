@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api } from '../../utils/api'
+import { ApiError, api } from '../../utils/api'
 import type { User } from '../types'
 
 export function useAuth() {
@@ -38,11 +38,12 @@ export function useAuth() {
       setAuthPassword('')
     } catch (e: any) {
       const msg = (e?.message || '').toString().toLowerCase()
-      // Map backend auth messages to user-friendly Vietnamese messages
-      if (msg.includes('email not found')) {
-        setAuthError('Email không tồn tại')
-      } else if (msg.includes('invalid password') || msg.includes('credential')) {
-        setAuthError('Sai mật khẩu')
+      if (e instanceof ApiError && e.status === 401) {
+        setAuthError('Sai email hoặc mật khẩu')
+      } else if (msg.includes('failed to fetch') || msg.includes('networkerror')) {
+        setAuthError('Không thể kết nối đến server')
+      } else if (msg.includes('email already registered')) {
+        setAuthError('Email đã được đăng ký')
       } else {
         setAuthError(e?.message || 'Auth failed')
       }

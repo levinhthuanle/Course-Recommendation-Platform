@@ -38,7 +38,7 @@ export function SearchPage({
   return (
     <>
       <header className="header">
-        <div className="heroIcon">CF</div>
+        <img className="heroIcon" src="/logo.png" alt="" />
         <h1>{t.searchTitle}</h1>
         <p>{t.searchSubtitle}</p>
       </header>

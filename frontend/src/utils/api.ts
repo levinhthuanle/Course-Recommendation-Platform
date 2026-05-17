@@ -2,8 +2,34 @@ import type { ChatResponse, ChatThreadDetail, ChatThreadSummary } from '../ui/ty
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 
+export class ApiError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 function getAuthToken() {
   return localStorage.getItem('auth_token') || ''
+}
+
+async function readErrorMessage(res: Response) {
+  const text = await res.text()
+  if (!text) return res.statusText || 'Request failed'
+
+  try {
+    const data = JSON.parse(text)
+    if (typeof data?.detail === 'string') return data.detail
+    if (Array.isArray(data?.detail)) return data.detail.map((item) => item.msg || item.message || 'Invalid input').join(', ')
+    if (typeof data?.message === 'string') return data.message
+  } catch {
+    return text
+  }
+
+  return text
 }
 
 async function fetchJson(path: string, init?: RequestInit) {
@@ -16,7 +42,7 @@ async function fetchJson(path: string, init?: RequestInit) {
       ...(init?.headers || {})
     }
   })
-  if (!res.ok) throw new Error(await res.text())
+  if (!res.ok) throw new ApiError(await readErrorMessage(res), res.status)
   return res.json()
 }
 
