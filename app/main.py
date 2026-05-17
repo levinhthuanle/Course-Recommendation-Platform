@@ -8,7 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.endpoints import auth, courses, chat
+from app.services.analytics_service import AnalyticsService
 from app.services.auth_service import AuthService
+from app.services.chat_history_service import ChatHistoryService
 from app.services.embedding_service import get_embedding_service
 from app.core.config import get_settings
 
@@ -34,6 +36,9 @@ async def lifespan(app: FastAPI):
     logger.info(f"Meilisearch URL: {settings.meilisearch_url}")
     logger.info(f"Resources path: {settings.resources_path}")
     AuthService(settings)
+    AnalyticsService(settings)
+    ChatHistoryService(settings)
+    logger.info("Persistent application database initialized")
     try:
         embedding_service = get_embedding_service()
         dimension = embedding_service.get_embedding_dimension()

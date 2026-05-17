@@ -221,6 +221,39 @@ class ChatHistoryService:
 
         return [self._thread_row_to_dict(row) for row in rows]
 
+    def adopt_debug_threads(self, user_id: int) -> int:
+        """Move legacy debug-mode conversations from user 0 to the real user."""
+        if user_id == 0:
+            return 0
+
+        if not self.use_postgres:
+            with self._get_sqlite_conn() as conn:
+                existing = conn.execute(
+                    "SELECT COUNT(*) AS c FROM chat_threads WHERE user_id = ?",
+                    (user_id,),
+                ).fetchone()["c"]
+                if existing:
+                    return 0
+                cursor = conn.execute("UPDATE chat_threads SET user_id = ? WHERE user_id = 0", (user_id,))
+                conn.execute("UPDATE chat_messages SET user_id = ? WHERE user_id = 0", (user_id,))
+                conn.commit()
+                return cursor.rowcount
+
+        conn = self._get_pg_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM chat_threads WHERE user_id = %s", (user_id,))
+                existing = cur.fetchone()[0]
+                if existing:
+                    return 0
+                cur.execute("UPDATE chat_threads SET user_id = %s WHERE user_id = 0", (user_id,))
+                adopted = cur.rowcount
+                cur.execute("UPDATE chat_messages SET user_id = %s WHERE user_id = 0", (user_id,))
+                conn.commit()
+                return adopted
+        finally:
+            conn.close()
+
     def rename_thread(self, user_id: int, thread_id: str, title: str) -> Optional[Dict]:
         thread_title = self._normalize_title(title)
         if not self.use_postgres:

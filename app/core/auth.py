@@ -52,12 +52,11 @@ def get_current_user(
     settings: Settings = Depends(get_settings),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> UserPublic:
-    # In debug mode, bypass authentication for easier local testing.
-    if settings.debug:
-        # Return a default admin user for testing in Swagger/UI
-        return UserPublic(id=0, email=settings.admin_email or "admin@example.com", role="admin")
-
     if not token:
+        # In debug mode, allow Swagger/UI calls without a token. When a token is
+        # present, still resolve the real user so per-user data stays persistent.
+        if settings.debug:
+            return UserPublic(id=0, email=settings.admin_email or "admin@example.com", role="admin")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",

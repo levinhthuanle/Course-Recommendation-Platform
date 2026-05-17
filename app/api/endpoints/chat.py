@@ -66,8 +66,11 @@ async def chat_status(
 @router.get("/chat/threads", response_model=list[ChatThreadSummary], summary="List my chat threads")
 async def list_chat_threads(
     current_user: UserPublic = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
     history_service: ChatHistoryService = Depends(get_chat_history_service),
 ) -> list[ChatThreadSummary]:
+    if settings.debug:
+        history_service.adopt_debug_threads(current_user.id)
     threads = history_service.list_threads(current_user.id)
     return [ChatThreadSummary(**thread) for thread in threads]
 

@@ -185,7 +185,7 @@ class AnalyticsService:
                                SUM(CASE WHEN query_type = 'search' THEN 1 ELSE 0 END) AS search,
                                SUM(CASE WHEN query_type = 'chat' THEN 1 ELSE 0 END) AS chat
                         FROM query_logs
-                        WHERE date(created_at) >= CURRENT_DATE - INTERVAL '%s day'
+                        WHERE date(created_at) >= CURRENT_DATE - (%s * INTERVAL '1 day')
                         GROUP BY day
                         ORDER BY day ASC
                         """,
@@ -195,7 +195,7 @@ class AnalyticsService:
             finally:
                 conn.close()
 
-        data = {row["day"]: row for row in rows}
+        data = {self._day_key(row["day"]): row for row in rows}
         results: List[Dict[str, int]] = []
         start_day = date.today() - timedelta(days=days - 1)
 
@@ -211,3 +211,8 @@ class AnalyticsService:
             })
 
         return results
+
+    def _day_key(self, value) -> str:
+        if hasattr(value, "isoformat"):
+            return value.isoformat()
+        return str(value)

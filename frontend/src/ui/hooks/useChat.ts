@@ -8,6 +8,7 @@ export function useChat(currentUser: User | null) {
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
   const [chatThreadsLoading, setChatThreadsLoading] = useState(false)
   const [chatLoading, setChatLoading] = useState(false)
+  const storageKey = currentUser ? `active_chat_thread:${currentUser.id}` : null
 
   const loadThreads = async (preferredThreadId?: string | null) => {
     if (!currentUser) {
@@ -22,8 +23,16 @@ export function useChat(currentUser: User | null) {
       const threads = await api.listChatThreads()
       setChatThreads(threads)
 
-      const nextThreadId = preferredThreadId ?? activeThreadId ?? threads[0]?.id ?? null
+      const storedThreadId = storageKey ? localStorage.getItem(storageKey) : null
+      const candidateThreadId = preferredThreadId ?? activeThreadId ?? storedThreadId ?? threads[0]?.id ?? null
+      const nextThreadId = threads.some((thread) => thread.id === candidateThreadId)
+        ? candidateThreadId
+        : threads[0]?.id ?? null
       setActiveThreadId(nextThreadId)
+      if (storageKey) {
+        if (nextThreadId) localStorage.setItem(storageKey, nextThreadId)
+        else localStorage.removeItem(storageKey)
+      }
 
       if (nextThreadId) {
         const thread = await api.getChatThread(nextThreadId)
@@ -47,6 +56,7 @@ export function useChat(currentUser: User | null) {
 
   const selectThread = async (threadId: string) => {
     setActiveThreadId(threadId)
+    if (storageKey) localStorage.setItem(storageKey, threadId)
     try {
       const thread = await api.getChatThread(threadId)
       setChatMessages(thread.messages)
@@ -60,6 +70,7 @@ export function useChat(currentUser: User | null) {
     const thread = await api.createChatThread()
     setChatThreads((prev) => [thread, ...prev.filter((item) => item.id !== thread.id)])
     setActiveThreadId(thread.id)
+    if (storageKey) localStorage.setItem(storageKey, thread.id)
     setChatMessages([])
   }
 
@@ -70,6 +81,10 @@ export function useChat(currentUser: User | null) {
     if (activeThreadId === threadId) {
       const nextThreadId = nextThreads[0]?.id ?? null
       setActiveThreadId(nextThreadId)
+      if (storageKey) {
+        if (nextThreadId) localStorage.setItem(storageKey, nextThreadId)
+        else localStorage.removeItem(storageKey)
+      }
       if (nextThreadId) {
         const thread = await api.getChatThread(nextThreadId)
         setChatMessages(thread.messages)
@@ -97,6 +112,7 @@ export function useChat(currentUser: User | null) {
       ])
       if (response.thread_id) {
         setActiveThreadId(response.thread_id)
+        if (storageKey) localStorage.setItem(storageKey, response.thread_id)
       }
       void loadThreads(response.thread_id ?? activeThreadId)
     } catch (e: any) {
