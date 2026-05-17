@@ -1,10 +1,83 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../../utils/api'
-import type { ChatMessage } from '../types'
+import type { ChatMessage, ChatThreadSummary, User } from '../types'
 
-export function useChat() {
+export function useChat(currentUser: User | null) {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [chatThreads, setChatThreads] = useState<ChatThreadSummary[]>([])
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
+  const [chatThreadsLoading, setChatThreadsLoading] = useState(false)
   const [chatLoading, setChatLoading] = useState(false)
+
+  const loadThreads = async (preferredThreadId?: string | null) => {
+    if (!currentUser) {
+      setChatThreads([])
+      setChatMessages([])
+      setActiveThreadId(null)
+      return
+    }
+
+    setChatThreadsLoading(true)
+    try {
+      const threads = await api.listChatThreads()
+      setChatThreads(threads)
+
+      const nextThreadId = preferredThreadId ?? activeThreadId ?? threads[0]?.id ?? null
+      setActiveThreadId(nextThreadId)
+
+      if (nextThreadId) {
+        const thread = await api.getChatThread(nextThreadId)
+        setChatMessages(thread.messages)
+      } else {
+        setChatMessages([])
+      }
+    } catch (e) {
+      console.error('Failed to load chat threads', e)
+      setChatThreads([])
+      setChatMessages([])
+    } finally {
+      setChatThreadsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadThreads()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.id])
+
+  const selectThread = async (threadId: string) => {
+    setActiveThreadId(threadId)
+    try {
+      const thread = await api.getChatThread(threadId)
+      setChatMessages(thread.messages)
+    } catch (e) {
+      console.error('Failed to load chat thread', e)
+    }
+  }
+
+  const createNewChat = async () => {
+    if (!currentUser) return
+    const thread = await api.createChatThread()
+    setChatThreads((prev) => [thread, ...prev.filter((item) => item.id !== thread.id)])
+    setActiveThreadId(thread.id)
+    setChatMessages([])
+  }
+
+  const deleteThread = async (threadId: string) => {
+    await api.deleteChatThread(threadId)
+    const nextThreads = chatThreads.filter((thread) => thread.id !== threadId)
+    setChatThreads(nextThreads)
+    if (activeThreadId === threadId) {
+      const nextThreadId = nextThreads[0]?.id ?? null
+      setActiveThreadId(nextThreadId)
+      if (nextThreadId) {
+        const thread = await api.getChatThread(nextThreadId)
+        setChatMessages(thread.messages)
+      } else {
+        setChatMessages([])
+      }
+    }
+  }
 
   const submitChat = async (message: string) => {
     if (!message.trim() || chatLoading) return
@@ -14,7 +87,7 @@ export function useChat() {
     setChatLoading(true)
 
     try {
-      const response = await api.chat(message, chatMessages)
+      const response = await api.chat(message, chatMessages, activeThreadId)
       setChatMessages((prev) => [
         ...prev,
         {
@@ -22,6 +95,10 @@ export function useChat() {
           content: response.message
         }
       ])
+      if (response.thread_id) {
+        setActiveThreadId(response.thread_id)
+      }
+      void loadThreads(response.thread_id ?? activeThreadId)
     } catch (e: any) {
       setChatMessages((prev) => [
         ...prev,
@@ -37,7 +114,14 @@ export function useChat() {
 
   return {
     chatMessages,
+    chatThreads,
+    chatThreadsLoading,
     chatLoading,
+    activeThreadId,
+    loadThreads,
+    selectThread,
+    createNewChat,
+    deleteThread,
     submitChat
   }
 }

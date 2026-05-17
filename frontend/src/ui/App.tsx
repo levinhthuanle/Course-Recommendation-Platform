@@ -23,7 +23,7 @@ export default function App() {
   const auth = useAuth()
   const search = useSearch()
   const courseModal = useCourseModal()
-  const chat = useChat()
+  const chat = useChat(auth.currentUser)
   const admin = useAdminDashboard(mode, auth.currentUser)
 
   useDocumentPreferences(theme)
@@ -100,9 +100,15 @@ export default function App() {
           />
         ) : (
           <ChatPage
+            activeThreadId={chat.activeThreadId}
             chatLoading={chat.chatLoading}
+            chatThreadsLoading={chat.chatThreadsLoading}
             messages={chat.chatMessages}
+            threads={chat.chatThreads}
             t={t}
+            onDeleteThread={chat.deleteThread}
+            onNewChat={chat.createNewChat}
+            onSelectThread={chat.selectThread}
             onSubmit={chat.submitChat}
           />
         )}

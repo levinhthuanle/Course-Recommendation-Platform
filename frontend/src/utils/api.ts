@@ -1,3 +1,5 @@
+import type { ChatResponse, ChatThreadDetail, ChatThreadSummary } from '../ui/types'
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 
 function getAuthToken() {
@@ -55,11 +57,21 @@ export const api = {
     if (!res.ok) throw new Error(await res.text())
     return res.json()
   },
-  chat: (message: string, history: Array<{role: string, content: string}> = []) => 
+  chat: (message: string, history: Array<{role: string, content: string}> = [], threadId?: string | null) => 
     fetchJson('/api/v1/chat', {
       method: 'POST',
-      body: JSON.stringify({ message, history })
-    }),
+      body: JSON.stringify({ message, history, thread_id: threadId ?? undefined })
+    }) as Promise<ChatResponse>,
   chatStatus: () => fetchJson('/api/v1/chat/status'),
+  listChatThreads: () => fetchJson('/api/v1/chat/threads') as Promise<ChatThreadSummary[]>,
+  createChatThread: (title?: string) =>
+    fetchJson('/api/v1/chat/threads', {
+      method: 'POST',
+      body: JSON.stringify({ title })
+    }) as Promise<ChatThreadSummary>,
+  getChatThread: (threadId: string) =>
+    fetchJson(`/api/v1/chat/threads/${encodeURIComponent(threadId)}`) as Promise<ChatThreadDetail>,
+  deleteChatThread: (threadId: string) =>
+    fetchJson(`/api/v1/chat/threads/${encodeURIComponent(threadId)}`, { method: 'DELETE' }),
   getCourse: (id: string) => fetchJson(`/api/v1/courses/${encodeURIComponent(id)}`),
 }

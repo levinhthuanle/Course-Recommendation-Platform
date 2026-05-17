@@ -35,6 +35,25 @@ export type ChatMessage = {
   content: string
 }
 
+export type ChatThreadSummary = {
+  id: string
+  title: string
+  created_at: string
+  updated_at: string
+  message_count: number
+}
+
+export type ChatThreadDetail = ChatThreadSummary & {
+  messages: ChatMessage[]
+}
+
+export type ChatResponse = {
+  message: string
+  success: boolean
+  thread_id?: string
+  thread_title?: string
+}
+
 export type AdminFile = {
   name: string
   size: number
