@@ -16,7 +16,9 @@ RUN apt-get update && apt-get install -y \
 COPY Requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r Requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir psycopg2-binary && \
+    pip install --no-cache-dir -r Requirements.txt
 
 # This image will be reused by backend Dockerfile
 # Build with: docker build -f Dockerfile.deps -t course-backend-deps .

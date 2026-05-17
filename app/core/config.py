@@ -100,6 +100,11 @@ class Settings(BaseSettings):
         default="./app/data/analytics.db",
         description="SQLite database path for analytics"
     )
+    # Database URL (PostgreSQL). If set, services will use PostgreSQL instead of SQLite.
+    database_url: str = Field(
+        default="",
+        description="PostgreSQL database URL, e.g. postgresql://user:pass@host:5432/dbname"
+    )
     jwt_secret: str = Field(
         default="change-me",
         description="JWT secret key"

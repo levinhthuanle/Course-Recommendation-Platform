@@ -37,7 +37,15 @@ export function useAuth() {
       setCurrentUser(response.user)
       setAuthPassword('')
     } catch (e: any) {
-      setAuthError(e?.message || 'Auth failed')
+      const msg = (e?.message || '').toString().toLowerCase()
+      // Map backend auth messages to user-friendly Vietnamese messages
+      if (msg.includes('email not found')) {
+        setAuthError('Email không tồn tại')
+      } else if (msg.includes('invalid password') || msg.includes('credential')) {
+        setAuthError('Sai mật khẩu')
+      } else {
+        setAuthError(e?.message || 'Auth failed')
+      }
     } finally {
       setAuthLoading(false)
     }

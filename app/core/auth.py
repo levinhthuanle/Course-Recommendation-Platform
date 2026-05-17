@@ -11,7 +11,7 @@ from app.core.security import hash_password, verify_password
 from app.models.user import TokenPayload, UserPublic
 from app.services.auth_service import AuthService
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
 
 __all__ = [
@@ -48,10 +48,22 @@ def get_auth_service(settings: Settings = Depends(get_settings)) -> AuthService:
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    token: Optional[str] = Depends(oauth2_scheme),
     settings: Settings = Depends(get_settings),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> UserPublic:
+    # In debug mode, bypass authentication for easier local testing.
+    if settings.debug:
+        # Return a default admin user for testing in Swagger/UI
+        return UserPublic(id=0, email=settings.admin_email or "admin@example.com", role="admin")
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     payload = decode_token(token, settings)
     user = auth_service.get_user_by_id(int(payload.sub))
     if not user:

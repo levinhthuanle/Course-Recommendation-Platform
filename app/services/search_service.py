@@ -8,6 +8,7 @@ from meilisearch.errors import MeilisearchApiError, MeilisearchCommunicationErro
 
 from app.core.config import Settings
 from app.models.course import CourseDocument, CourseResponse, SearchResponse
+from app.services.embedding_service import get_embedding_service
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +198,7 @@ class SearchService:
         limit: int = 20,
         offset: int = 0,
         filters: Optional[str] = None,
-        hybrid_search: bool = False,  # Default to False until embedder is confirmed working
+        hybrid_search: bool = True,
         semantic_ratio: float = 0.5,
     ) -> SearchResponse:
         """
@@ -235,17 +236,30 @@ class SearchService:
             if filters:
                 search_params["filter"] = filters
 
-            # Enable hybrid search if embeddings are available
-            if hybrid_search:
+            # Enable hybrid search when semantic weight is requested.
+            # The index uses a userProvided embedder, so Meilisearch requires
+            # the query vector to be sent with the search request.
+            if hybrid_search and semantic_ratio > 0:
                 try:
+                    query_vector = get_embedding_service().generate_embedding(query)
                     search_params["hybrid"] = {
                         "semanticRatio": semantic_ratio,
                         "embedder": "default"
                     }
+                    search_params["vector"] = query_vector
                 except Exception as e:
-                    logger.warning(f"Hybrid search not available, falling back to keyword: {e}")
+                    logger.warning(f"Could not generate query embedding, falling back to keyword search: {e}")
 
-            results = self.index.search(query, search_params)
+            try:
+                results = self.index.search(query, search_params)
+            except MeilisearchApiError as e:
+                if "hybrid" in search_params or "vector" in search_params:
+                    logger.warning(f"Hybrid search failed, retrying keyword search: {e}")
+                    search_params.pop("hybrid", None)
+                    search_params.pop("vector", None)
+                    results = self.index.search(query, search_params)
+                else:
+                    raise
 
             # Convert results to CourseResponse objects
             hits = [

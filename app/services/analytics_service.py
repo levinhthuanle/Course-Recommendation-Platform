@@ -1,8 +1,11 @@
-"""Analytics service for admin dashboards."""
+"""Analytics service for admin dashboards.
+
+Supports PostgreSQL via `Settings.database_url`. Falls back to SQLite when
+`database_url` is empty.
+"""
 
 import logging
 import re
-import sqlite3
 from collections import Counter
 from datetime import date, timedelta
 from pathlib import Path
@@ -14,53 +17,113 @@ logger = logging.getLogger(__name__)
 
 
 class AnalyticsService:
-    """SQLite-backed analytics for query logging."""
+    """Analytics for query logging with SQLite or PostgreSQL backend."""
 
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.db_path = Path(settings.analytics_db_path)
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.use_postgres = bool(settings.database_url)
+
+        if not self.use_postgres:
+            import sqlite3
+
+            self._sqlite = sqlite3
+            self.db_path = Path(settings.analytics_db_path)
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+
+        else:
+            import psycopg2
+            import psycopg2.extras
+
+            self._psycopg2 = psycopg2
+            self._psycopg2_extras = psycopg2.extras
+
         self._init_db()
 
-    def _get_conn(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
+    def _get_sqlite_conn(self):
+        conn = self._sqlite.connect(self.db_path)
+        conn.row_factory = self._sqlite.Row
         return conn
 
+    def _get_pg_conn(self):
+        return self._psycopg2.connect(self.settings.database_url)
+
     def _init_db(self) -> None:
-        with self._get_conn() as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS query_logs (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    query_type TEXT NOT NULL,
-                    query_text TEXT NOT NULL,
-                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        if not self.use_postgres:
+            with self._get_sqlite_conn() as conn:
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS query_logs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        query_type TEXT NOT NULL,
+                        query_text TEXT NOT NULL,
+                        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
                 )
-                """
-            )
-            conn.commit()
+                conn.commit()
+        else:
+            conn = self._get_pg_conn()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        CREATE TABLE IF NOT EXISTS query_logs (
+                            id SERIAL PRIMARY KEY,
+                            query_type TEXT NOT NULL,
+                            query_text TEXT NOT NULL,
+                            created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                        )
+                        """
+                    )
+                    conn.commit()
+            finally:
+                conn.close()
 
     def log_query(self, query_type: str, query_text: str) -> None:
         text = (query_text or "").strip()
         if not text:
             return
-        with self._get_conn() as conn:
-            conn.execute(
-                "INSERT INTO query_logs (query_type, query_text) VALUES (?, ?)",
-                (query_type, text),
-            )
-            conn.commit()
+        if not self.use_postgres:
+            with self._get_sqlite_conn() as conn:
+                conn.execute(
+                    "INSERT INTO query_logs (query_type, query_text) VALUES (?, ?)",
+                    (query_type, text),
+                )
+                conn.commit()
+        else:
+            conn = self._get_pg_conn()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "INSERT INTO query_logs (query_type, query_text) VALUES (%s, %s)",
+                        (query_type, text),
+                    )
+                    conn.commit()
+            finally:
+                conn.close()
 
     def get_counts(self) -> Dict[str, int]:
-        with self._get_conn() as conn:
-            total = conn.execute("SELECT COUNT(*) AS c FROM query_logs").fetchone()["c"]
-            search = conn.execute(
-                "SELECT COUNT(*) AS c FROM query_logs WHERE query_type = 'search'"
-            ).fetchone()["c"]
-            chat = conn.execute(
-                "SELECT COUNT(*) AS c FROM query_logs WHERE query_type = 'chat'"
-            ).fetchone()["c"]
+        if not self.use_postgres:
+            with self._get_sqlite_conn() as conn:
+                total = conn.execute("SELECT COUNT(*) AS c FROM query_logs").fetchone()["c"]
+                search = conn.execute(
+                    "SELECT COUNT(*) AS c FROM query_logs WHERE query_type = 'search'"
+                ).fetchone()["c"]
+                chat = conn.execute(
+                    "SELECT COUNT(*) AS c FROM query_logs WHERE query_type = 'chat'"
+                ).fetchone()["c"]
+        else:
+            conn = self._get_pg_conn()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT COUNT(*) AS c FROM query_logs")
+                    total = cur.fetchone()[0]
+                    cur.execute("SELECT COUNT(*) AS c FROM query_logs WHERE query_type = 'search'")
+                    search = cur.fetchone()[0]
+                    cur.execute("SELECT COUNT(*) AS c FROM query_logs WHERE query_type = 'chat'")
+                    chat = cur.fetchone()[0]
+            finally:
+                conn.close()
 
         return {
             "total": total,
@@ -69,10 +132,19 @@ class AnalyticsService:
         }
 
     def get_top_terms(self, limit: int = 12) -> List[Dict[str, int]]:
-        with self._get_conn() as conn:
-            rows = conn.execute(
-                "SELECT query_text FROM query_logs ORDER BY id DESC LIMIT 1000"
-            ).fetchall()
+        if not self.use_postgres:
+            with self._get_sqlite_conn() as conn:
+                rows = conn.execute(
+                    "SELECT query_text FROM query_logs ORDER BY id DESC LIMIT 1000"
+                ).fetchall()
+        else:
+            conn = self._get_pg_conn()
+            try:
+                with conn.cursor(cursor_factory=self._psycopg2_extras.RealDictCursor) as cur:
+                    cur.execute("SELECT query_text FROM query_logs ORDER BY id DESC LIMIT 1000")
+                    rows = cur.fetchall()
+            finally:
+                conn.close()
 
         tokens: List[str] = []
         for row in rows:
@@ -87,20 +159,41 @@ class AnalyticsService:
         if days < 1:
             return []
 
-        with self._get_conn() as conn:
-            rows = conn.execute(
-                """
-                SELECT date(created_at) AS day,
-                       COUNT(*) AS total,
-                       SUM(CASE WHEN query_type = 'search' THEN 1 ELSE 0 END) AS search,
-                       SUM(CASE WHEN query_type = 'chat' THEN 1 ELSE 0 END) AS chat
-                FROM query_logs
-                WHERE date(created_at) >= date('now', ?)
-                GROUP BY day
-                ORDER BY day ASC
-                """,
-                (f"-{days - 1} day",),
-            ).fetchall()
+        if not self.use_postgres:
+            with self._get_sqlite_conn() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT date(created_at) AS day,
+                           COUNT(*) AS total,
+                           SUM(CASE WHEN query_type = 'search' THEN 1 ELSE 0 END) AS search,
+                           SUM(CASE WHEN query_type = 'chat' THEN 1 ELSE 0 END) AS chat
+                    FROM query_logs
+                    WHERE date(created_at) >= date('now', ?)
+                    GROUP BY day
+                    ORDER BY day ASC
+                    """,
+                    (f"-{days - 1} day",),
+                ).fetchall()
+        else:
+            conn = self._get_pg_conn()
+            try:
+                with conn.cursor(cursor_factory=self._psycopg2_extras.RealDictCursor) as cur:
+                    cur.execute(
+                        """
+                        SELECT date(created_at) AS day,
+                               COUNT(*) AS total,
+                               SUM(CASE WHEN query_type = 'search' THEN 1 ELSE 0 END) AS search,
+                               SUM(CASE WHEN query_type = 'chat' THEN 1 ELSE 0 END) AS chat
+                        FROM query_logs
+                        WHERE date(created_at) >= CURRENT_DATE - INTERVAL '%s day'
+                        GROUP BY day
+                        ORDER BY day ASC
+                        """,
+                        (days - 1,)
+                    )
+                    rows = cur.fetchall()
+            finally:
+                conn.close()
 
         data = {row["day"]: row for row in rows}
         results: List[Dict[str, int]] = []

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.endpoints import auth, courses, chat
 from app.services.auth_service import AuthService
+from app.services.embedding_service import get_embedding_service
 from app.core.config import get_settings
 
 # Configure logging
@@ -33,6 +34,12 @@ async def lifespan(app: FastAPI):
     logger.info(f"Meilisearch URL: {settings.meilisearch_url}")
     logger.info(f"Resources path: {settings.resources_path}")
     AuthService(settings)
+    try:
+        embedding_service = get_embedding_service()
+        dimension = embedding_service.get_embedding_dimension()
+        logger.info(f"Embedding model preloaded successfully ({dimension} dimensions)")
+    except Exception as exc:
+        logger.warning(f"Embedding model preload failed; hybrid search will fall back if needed: {exc}")
     
     yield
     

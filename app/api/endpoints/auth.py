@@ -47,10 +47,16 @@ def login_user(
     if password_len > 72:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password too long (max 72 bytes)")
 
-    user = auth_service.authenticate(payload.email, payload.password)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    # Distinguish between email not found and invalid password for clearer error messages
+    existing = auth_service.get_user_by_email(payload.email)
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email not found")
 
+    if not auth_service.verify_password_for_email(payload.email, payload.password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
+
+    # At this point authentication succeeded; get user object
+    user = existing
     token = create_access_token(subject=str(user.id), role=user.role, settings=settings)
     return TokenResponse(access_token=token, user=user)
 

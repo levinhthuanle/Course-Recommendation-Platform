@@ -118,7 +118,7 @@ async def search_courses(
             limit=limit,
             offset=offset,
             filters=filters,
-            hybrid_search=False,  # Temporarily disabled until embedder is confirmed
+            hybrid_search=semantic_ratio > 0,
             semantic_ratio=semantic_ratio,
         )
 

@@ -54,6 +54,9 @@ export function AuthPage({
               type="email"
               value={authEmail}
               onChange={(e) => onAuthEmailChange(e.target.value)}
+              onKeyDown={(e: any) => {
+                if (e.key === 'Enter') onSubmit()
+              }}
               placeholder="you@hcmus.edu.vn"
             />
           </label>
@@ -63,6 +66,9 @@ export function AuthPage({
               type="password"
               value={authPassword}
               onChange={(e) => onAuthPasswordChange(e.target.value)}
+              onKeyDown={(e: any) => {
+                if (e.key === 'Enter') onSubmit()
+              }}
               placeholder="********"
             />
           </label>
