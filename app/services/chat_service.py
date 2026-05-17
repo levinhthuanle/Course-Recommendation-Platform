@@ -152,7 +152,7 @@ class ChatService:
             return query
             
         try:
-            prompt = f"""Translate the following Vietnamese question about university courses into English search keywords.
+            prompt = f"""Translate the following question about university courses into English search keywords.
 Only return the keywords, no explanation. If already in English, just return relevant search terms.
 
 Question: {query}
@@ -193,7 +193,12 @@ English keywords:"""
             all_courses = []
             
             for q in queries[:5]:  # Limit to 5 queries to avoid too many searches
-                results = self.search_service.search(query=q, limit=limit)
+                results = self.search_service.search(
+                    query=q,
+                    limit=limit,
+                    hybrid_search=True,
+                    semantic_ratio=0.6,
+                )
                 for course in results.hits:
                     course_id = getattr(course, 'id', None) or f"{course.course_code}_{course.title}"
                     if course_id not in seen_ids:
@@ -201,9 +206,9 @@ English keywords:"""
                         all_courses.append(course)
             
             if not all_courses:
-                return "Không tìm thấy khóa học liên quan trong cơ sở dữ liệu."
+                return "No relevant courses were found in the database."
 
-            context_parts = [f"Dưới đây là thông tin {len(all_courses)} khóa học liên quan:\n"]
+            context_parts = [f"Below is information about {len(all_courses)} relevant courses:\n"]
             
             for i, course in enumerate(all_courses[:10], 1):  # Limit to 10 courses
                 full_course = None
@@ -221,14 +226,14 @@ English keywords:"""
                     full_content = course.content or ""
                 course_info = f"""
 ---
-**Khóa học {i}:**
-- Mã môn: {course.course_code or 'N/A'}
-- Tên môn: {course.title or 'N/A'}
-- Mô tả: {course.summary or 'Không có mô tả'}
+**Course {i}:**
+- Code: {course.course_code or 'N/A'}
+- Title: {course.title or 'N/A'}
+- Summary: {course.summary or 'No summary available'}
 """
                 if full_content:
                     content_preview = full_content[:1800] + "..." if len(full_content) > 1800 else full_content
-                    course_info += f"- Nội dung chi tiết: {content_preview}\n"
+                    course_info += f"- Detailed content: {content_preview}\n"
                 
                 context_parts.append(course_info)
 
@@ -236,7 +241,7 @@ English keywords:"""
 
         except Exception as e:
             logger.error(f"Error retrieving context: {e}")
-            return "Không thể truy xuất thông tin khóa học."
+            return "Unable to retrieve course information."
 
     def _build_prompt(self, user_message: str, context: str, chat_history: List[Dict]) -> str:
         """
@@ -250,28 +255,28 @@ English keywords:"""
         Returns:
             Complete prompt string
         """
-        system_prompt = """Bạn là trợ lý AI chuyên tư vấn về các khóa học của trường Đại học Khoa học Tự nhiên - ĐHQG TP.HCM (HCMUS).
+        system_prompt = """You are an AI assistant specialized in advising students about university courses at HCMUS.
 
-Nhiệm vụ của bạn:
-1. Trả lời câu hỏi về các khóa học dựa trên thông tin được cung cấp
-2. Đề xuất khóa học phù hợp với nhu cầu của sinh viên
-3. Giải thích nội dung, yêu cầu tiên quyết của các môn học
-4. So sánh các khóa học khi được yêu cầu
+    Your tasks:
+    1. Answer questions about courses using only the provided information
+    2. Recommend suitable courses based on a student's needs
+    3. Explain course content and prerequisite requirements
+    4. Compare courses when asked
 
-Quy tắc:
-- Chỉ trả lời dựa trên thông tin được cung cấp
-- Nếu không có thông tin, hãy nói rõ là không biết
-- Trả lời ngắn gọn, rõ ràng
-- Sử dụng tiếng Việt hoặc tiếng Anh tùy theo ngôn ngữ của câu hỏi
-- Đề cập mã môn học khi nói về một khóa học cụ thể
+    Rules:
+    - Answer in English only
+    - Use only the provided information
+    - If the information is missing, clearly say you do not know
+    - Keep the answer concise and clear
+    - Mention the course code when referring to a specific course
 """
 
         # Build conversation history
         history_text = ""
         if chat_history:
-            history_text = "\n\nLịch sử cuộc trò chuyện:\n"
+            history_text = "\n\nConversation history:\n"
             for msg in chat_history[-6:]:  # Last 6 messages for context
-                role = "Người dùng" if msg.get("role") == "user" else "Trợ lý"
+                role = "User" if msg.get("role") == "user" else "Assistant"
                 history_text += f"{role}: {msg.get('content', '')}\n"
 
         full_prompt = f"""{system_prompt}
@@ -279,9 +284,9 @@ Quy tắc:
 {context}
 {history_text}
 
-Câu hỏi hiện tại: {user_message}
+Current question: {user_message}
 
-Trả lời:"""
+Answer in English:"""
 
         return full_prompt
 
@@ -301,7 +306,7 @@ Trả lời:"""
             AI-generated response
         """
         if not self.model:
-            return "Xin lỗi, dịch vụ chat chưa được cấu hình. Vui lòng kiểm tra API key của Gemini."
+            return "Sorry, the chat service is not configured. Please check the Gemini API key."
 
         chat_history = chat_history or []
 
@@ -333,11 +338,11 @@ Trả lời:"""
             if response.text:
                 return response.text.strip()
             else:
-                return "Xin lỗi, tôi không thể tạo câu trả lời. Vui lòng thử lại."
+                return "Sorry, I could not generate an answer. Please try again."
 
         except Exception as e:
             logger.error(f"Chat error: {e}")
-            return f"Đã xảy ra lỗi: {str(e)}. Vui lòng thử lại sau."
+            return f"An error occurred: {str(e)}. Please try again later."
 
     def is_available(self) -> bool:
         """Check if chat service is properly configured."""
