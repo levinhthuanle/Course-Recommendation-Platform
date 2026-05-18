@@ -306,6 +306,22 @@ class SearchService:
             logger.error(f"Failed to get index stats: {e}")
             raise
 
+    def suggest_courses(self, query: str = "", limit: int = 8) -> List[Dict]:
+        """Return lightweight course suggestions from indexed course codes and titles."""
+        if not self.index:
+            self.get_or_create_index()
+
+        search_query = (query or "").strip()
+        results = self.index.search(
+            search_query,
+            {
+                "limit": limit,
+                "attributesToRetrieve": ["id", "course_code", "title"],
+                "matchingStrategy": "last",
+            },
+        )
+        return results.get("hits", [])
+
     def delete_documents_by_source_file(self, source_file: str) -> int:
         if not self.index:
             self.get_or_create_index()

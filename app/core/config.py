@@ -21,6 +21,17 @@ class Settings(BaseSettings):
     app_name: str = Field(default="Course Recommendation Platform", description="Application name")
     app_version: str = Field(default="1.0.0", description="Application version")
     debug: bool = Field(default=False, description="Debug mode")
+
+    @field_validator('debug', mode='before')
+    @classmethod
+    def parse_debug(cls, v):
+        if isinstance(v, str):
+            value = v.strip().lower()
+            if value in {"release", "prod", "production"}:
+                return False
+            if value in {"dev", "development"}:
+                return True
+        return v
     
     # Server Settings
     host: str = Field(default="0.0.0.0", description="Server host")

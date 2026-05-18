@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 class ChatHistoryService:
     """Persist and retrieve per-user chat threads and messages."""
 
+    DEFAULT_THREAD_TITLE = "New chat"
+
     def __init__(self, settings: Settings):
         self.settings = settings
         self.use_postgres = bool(settings.database_url)
@@ -103,7 +105,28 @@ class ChatHistoryService:
 
     def _normalize_title(self, title: Optional[str]) -> str:
         value = (title or "").strip()
-        return value[:120] if value else "New chat"
+        return value[:120] if value else self.DEFAULT_THREAD_TITLE
+
+    def _title_from_message(self, message: Optional[str]) -> str:
+        text = " ".join((message or "").strip().split())
+        if not text:
+            return self.DEFAULT_THREAD_TITLE
+
+        sentence_end = min(
+            [idx for idx in (text.find("."), text.find("?"), text.find("!")) if idx >= 0],
+            default=-1,
+        )
+        if 8 <= sentence_end <= 72:
+            text = text[:sentence_end]
+
+        words = text.split()
+        if len(words) > 10:
+            text = " ".join(words[:10])
+
+        return self._normalize_title(text.rstrip(".,?!:;"))
+
+    def _is_default_title(self, title: Optional[str]) -> bool:
+        return self._normalize_title(title).lower() == self.DEFAULT_THREAD_TITLE.lower()
 
     def _thread_row_to_dict(self, row) -> Dict:
         return {
@@ -375,5 +398,9 @@ class ChatHistoryService:
         if thread_id:
             existing = self.get_thread(user_id, thread_id)
             if existing:
+                if existing.get("message_count", 0) == 0 and self._is_default_title(existing.get("title")):
+                    renamed = self.rename_thread(user_id, thread_id, self._title_from_message(title_hint))
+                    if renamed:
+                        return renamed
                 return existing
-        return self.create_thread(user_id, title_hint)
+        return self.create_thread(user_id, self._title_from_message(title_hint))

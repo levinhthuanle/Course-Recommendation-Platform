@@ -10,9 +10,18 @@ from meilisearch.errors import MeilisearchApiError, MeilisearchCommunicationErro
 from app.core.auth import get_current_user, require_admin
 from app.core.config import Settings, get_settings
 from app.models.user import UserPublic
-from app.models.course import CourseDetailResponse, HealthResponse, IngestionStatus, SearchResponse
+from app.models.course import (
+    CourseDetailResponse,
+    FavoriteCourseResponse,
+    HealthResponse,
+    IngestionStatus,
+    SearchResponse,
+    SuggestionItem,
+    SuggestionsResponse,
+)
 from app.services.analytics_service import AnalyticsService
 from app.services.auth_service import AuthService
+from app.services.favorites_service import FavoritesService
 from app.services.ingest_service import IngestionService
 from app.services.search_service import SearchService
 
@@ -40,6 +49,10 @@ def get_ingestion_service(
 
 def get_analytics_service(settings: Settings = Depends(get_settings)) -> AnalyticsService:
     return AnalyticsService(settings)
+
+
+def get_favorites_service(settings: Settings = Depends(get_settings)) -> FavoritesService:
+    return FavoritesService(settings)
 
 
 @router.get("/health", response_model=HealthResponse, summary="Health check")
@@ -144,6 +157,50 @@ async def search_courses(
         )
 
 
+@router.get("/suggestions", response_model=SuggestionsResponse, summary="Get search suggestions")
+async def get_search_suggestions(
+    q: str = Query("", description="Partial query"),
+    limit: int = Query(8, ge=1, le=20, description="Number of suggestions to return"),
+    search_service: SearchService = Depends(get_search_service),
+    current_user: UserPublic = Depends(get_current_user),
+    analytics_service: AnalyticsService = Depends(get_analytics_service),
+) -> SuggestionsResponse:
+    query = q.strip()
+    suggestions: list[SuggestionItem] = []
+    seen: set[str] = set()
+
+    def add_suggestion(value: str, label: str, kind: str, meta: str | None = None) -> None:
+        cleaned = (value or "").strip()
+        key = cleaned.lower()
+        if not cleaned or key in seen or len(suggestions) >= limit:
+            return
+        seen.add(key)
+        suggestions.append(SuggestionItem(value=cleaned, label=label, type=kind, meta=meta))
+
+    try:
+        course_hits = search_service.suggest_courses(query, limit=limit)
+        for hit in course_hits:
+            code = (hit.get("course_code") or "").strip()
+            title = (hit.get("title") or "").strip()
+            if code:
+                add_suggestion(code, code, "course_code", title or None)
+            if title:
+                add_suggestion(title, title, "title", code or None)
+
+        for item in analytics_service.get_top_terms(limit=20):
+            term = item["term"]
+            if not query or term.lower().startswith(query.lower()):
+                add_suggestion(term, term, "popular", f'{item["count"]} searches')
+
+        return SuggestionsResponse(query=query, suggestions=suggestions)
+    except Exception as e:
+        logger.error(f"Failed to get suggestions: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get suggestions",
+        )
+
+
 @router.get("/courses/{course_id}", response_model=CourseDetailResponse, summary="Get course details")
 async def get_course_detail(
     course_id: str,
@@ -202,6 +259,67 @@ async def get_course_detail(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred",
         )
+
+
+def _course_document_to_favorite(document: dict, saved_at: str | None = None) -> FavoriteCourseResponse:
+    return FavoriteCourseResponse(
+        id=document.get("id", ""),
+        course_code=document.get("course_code", ""),
+        title=document.get("title", ""),
+        summary=document.get("summary", ""),
+        score=document.get("_rankingScore"),
+        saved_at=saved_at,
+    )
+
+
+@router.get("/favorites", response_model=list[FavoriteCourseResponse], summary="List saved courses")
+async def list_favorite_courses(
+    current_user: UserPublic = Depends(get_current_user),
+    favorites_service: FavoritesService = Depends(get_favorites_service),
+    search_service: SearchService = Depends(get_search_service),
+) -> list[FavoriteCourseResponse]:
+    rows = favorites_service.list(current_user.id)
+    results: list[FavoriteCourseResponse] = []
+    missing_ids: list[str] = []
+
+    for row in rows:
+        document = search_service.get_document_by_id(row["course_id"])
+        if document:
+            results.append(_course_document_to_favorite(document, str(row.get("created_at") or "")))
+        else:
+            missing_ids.append(row["course_id"])
+
+    for course_id in missing_ids:
+        favorites_service.remove(current_user.id, course_id)
+
+    return results
+
+
+@router.post("/favorites/{course_id}", response_model=FavoriteCourseResponse, summary="Save a course")
+async def save_favorite_course(
+    course_id: str,
+    current_user: UserPublic = Depends(get_current_user),
+    favorites_service: FavoritesService = Depends(get_favorites_service),
+    search_service: SearchService = Depends(get_search_service),
+) -> FavoriteCourseResponse:
+    document = search_service.get_document_by_id(course_id)
+    if not document:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
+
+    favorites_service.add(current_user.id, course_id)
+    return _course_document_to_favorite(document)
+
+
+@router.delete("/favorites/{course_id}", summary="Remove a saved course")
+async def remove_favorite_course(
+    course_id: str,
+    current_user: UserPublic = Depends(get_current_user),
+    favorites_service: FavoritesService = Depends(get_favorites_service),
+):
+    deleted = favorites_service.remove(current_user.id, course_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Favorite not found")
+    return {"message": "Favorite removed", "course_id": course_id}
 
 
 @router.post(

@@ -12,6 +12,7 @@ from app.services.analytics_service import AnalyticsService
 from app.services.auth_service import AuthService
 from app.services.chat_history_service import ChatHistoryService
 from app.services.embedding_service import get_embedding_service
+from app.services.favorites_service import FavoritesService
 from app.core.config import get_settings
 
 # Configure logging
@@ -38,6 +39,7 @@ async def lifespan(app: FastAPI):
     AuthService(settings)
     AnalyticsService(settings)
     ChatHistoryService(settings)
+    FavoritesService(settings)
     logger.info("Persistent application database initialized")
     try:
         embedding_service = get_embedding_service()
