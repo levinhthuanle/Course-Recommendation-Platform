@@ -1,19 +1,24 @@
-export const cleanText = (text?: string) => (text || '').replace(/\s+/g, ' ').trim()
-
-export const formatBytes = (bytes: number) => {
-  if (!Number.isFinite(bytes)) return '---'
-  if (bytes < 1024) return `${bytes} B`
-  const kb = bytes / 1024
-  if (kb < 1024) return `${kb.toFixed(1)} KB`
-  const mb = kb / 1024
-  return `${mb.toFixed(1)} MB`
+export function cleanText(value: string | null | undefined): string {
+  if (value == null) return ''
+  return String(value).replace(/\s+/g, ' ').trim()
 }
 
-export const isValidResult = (title?: string, code?: string): boolean => {
-  const t = (title || '').toLowerCase()
-  const c = (code || '').toLowerCase()
+export function isValidResult(title?: string, courseCode?: string): boolean {
+  return cleanText(title).length > 0 || cleanText(courseCode).length > 0
+}
 
-  if (t.includes('syllabus') || t.includes('apcs')) return false
-  if (c.includes('syllabus') || c.includes('apcs')) return false
-  return true
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
+
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let value = bytes
+  let unitIndex = 0
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex += 1
+  }
+
+  const decimals = value >= 10 || unitIndex === 0 ? 0 : 1
+  return `${value.toFixed(decimals)} ${units[unitIndex]}`
 }
