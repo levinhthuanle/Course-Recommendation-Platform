@@ -43,7 +43,7 @@ services:
         curl -sf -X PATCH "http://meilisearch:7700/experimental-features"
         -H "Authorization: Bearer $$MEILI_MASTER_KEY"
         -H "Content-Type: application/json"
-        -d '{"vectorStore":true}'
+        -d '{"compositeEmbedders":true}'
     restart: "no"
 
   backend:
@@ -74,8 +74,6 @@ services:
       - "8000"
     depends_on:
       backend-deps:
-        condition: service_completed_successfully
-      meilisearch-init:
         condition: service_completed_successfully
       meilisearch:
         condition: service_healthy
