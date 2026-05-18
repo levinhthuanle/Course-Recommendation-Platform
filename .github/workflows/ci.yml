@@ -132,14 +132,7 @@ jobs:
         run: docker build -f Dockerfile -t course-backend:latest .
 
       - name: Build frontend Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          load: true
-          push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+        run: docker build -f frontend/Dockerfile -t course-frontend:latest frontend
 
   test-results-summary:
     runs-on: ubuntu-latest
