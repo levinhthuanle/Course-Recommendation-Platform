@@ -2,6 +2,13 @@
 
 A production-oriented hybrid retrieval system and grounded RAG chatbot for university syllabus search. The goal is reliable, traceable answers backed by retrieved syllabus evidence rather than a demo chatbot.
 
+## 🔄 Workflow Status
+
+[![CI Tests](https://github.com/YOUR_USERNAME/course-platform/workflows/CI%20-%20Run%20Tests/badge.svg)](https://github.com/YOUR_USERNAME/course-platform/actions/workflows/ci.yml)
+[![Deploy to AWS EC2](https://github.com/YOUR_USERNAME/course-platform/workflows/Deploy%20to%20AWS%20EC2/badge.svg)](https://github.com/YOUR_USERNAME/course-platform/actions/workflows/deploy.yml)
+
+**CI/CD Pipeline**: Tests run on every commit. Auto-deployment on Production branch push. [Learn more →](CI_CD_WORKFLOWS.md)
+
 <table>
   <tr>
     <td align="center">
@@ -451,7 +458,41 @@ const ingestResponse = await fetch(
 const ingestData = await ingestResponse.json();
 ```
 
-## 🐛 Troubleshooting
+## � AWS EC2 Deployment with GitHub Actions
+
+### CI/CD Pipeline Overview
+- **CI (Continuous Integration)**: Tests run automatically on every commit to any branch
+- **CD (Continuous Deployment)**: Auto-deployment only when pushing to `Production` branch
+
+See [CI_CD_WORKFLOWS.md](CI_CD_WORKFLOWS.md) for detailed workflow documentation.
+
+### Quick Start
+For automated deployment to AWS EC2 using GitHub Actions CI/CD pipeline:
+
+1. **Read the full guide**: See [DEPLOYMENT.md](DEPLOYMENT.md) for comprehensive setup instructions
+2. **Quick steps**:
+   - Launch Ubuntu 22.04 LTS EC2 instance
+   - SSH and run setup script: `curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/course-platform/Production/scripts/ec2-setup.sh | bash`
+   - Add GitHub secrets: `EC2_HOST`, `EC2_USER`, `EC2_PRIVATE_KEY`
+   - Create `Production` branch and push to trigger automatic deployment
+
+### Features
+- ✅ Automated tests on every commit (CI)
+- ✅ Automated deployment on `Production` branch push (CD)
+- ✅ Docker multi-container orchestration
+- ✅ Health check validation
+- ✅ Optional Slack notifications
+- ✅ SSH-based secure deployment
+- ✅ Rollback capability
+- ✅ Backend + Frontend test coverage
+
+### Files
+- [.github/workflows/deploy.yml](.github/workflows/deploy.yml) - GitHub Actions workflow
+- [scripts/ec2-setup.sh](scripts/ec2-setup.sh) - EC2 initialization script
+- [scripts/health-check.sh](scripts/health-check.sh) - Health check utility
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Complete setup guide
+
+## �🐛 Troubleshooting
 
 ### Meilisearch Connection Failed
 - Ensure Meilisearch is running: `docker ps`

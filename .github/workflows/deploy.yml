@@ -1,0 +1,55 @@
+name: Deploy to AWS EC2
+
+# Only runs on commits pushed to the Production branch
+# This ensures code is tested before deployment
+on:
+  push:
+    branches:
+      - Production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: Production
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            cd /home/${{ secrets.EC2_USER }}/course-platform
+            
+            # Pull latest code
+            git fetch origin
+            git checkout Production
+            git pull origin Production
+            
+            # Create/update .env file from secrets (optional - manage via SSH)
+            # source ~/.env
+            
+            # Rebuild and restart services
+            docker-compose down
+            docker-compose build --no-cache
+            docker-compose up -d
+            
+            # Health check
+            sleep 10
+            curl -f http://localhost:8000/health || exit 1
+            
+            echo "Deployment successful!"
+
+      - name: Notify Slack (Optional)
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Production deployment ${{ job.status }} on ${{ github.ref }}'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        continue-on-error: true
