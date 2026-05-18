@@ -1,12 +1,10 @@
-version: '3.8'
-
 services:
   backend:
-    image: ghcr.io/levinhthuanle/course-backend:latest
+    image: ${IMAGE_PREFIX:-ghcr.io/levinhthuanle}/course-backend:${IMAGE_TAG:-latest}
     env_file:
-      - .env.production
+      - .env
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       - postgres
       - meilisearch
@@ -15,9 +13,9 @@ services:
       - app-network
 
   frontend:
-    image: ghcr.io/levinhthuanle/course-frontend:latest
-    ports:
-      - "3000:80"
+    image: ${IMAGE_PREFIX:-ghcr.io/levinhthuanle}/course-frontend:${IMAGE_TAG:-latest}
+    expose:
+      - "3000"
     restart: unless-stopped
     networks:
       - app-network
@@ -35,12 +33,13 @@ services:
       - app-network
 
   meilisearch:
-    image: getmeili/meilisearch:latest
+    image: getmeili/meilisearch:v1.12
     environment:
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-masterKey123}
+      MEILI_ENV: ${MEILI_ENV:-production}
       MEILI_NO_ANALYTICS: 'true'
-    ports:
-      - "7700:7700"
+    expose:
+      - "7700"
     volumes:
       - meili_data:/meili-data
     restart: unless-stopped

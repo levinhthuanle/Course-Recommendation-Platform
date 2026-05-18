@@ -42,6 +42,8 @@ PORT=8000
 
 # Meilisearch
 MEILI_MASTER_KEY=your-master-key-here
+MEILISEARCH_MASTER_KEY=your-master-key-here
+MEILI_ENV=production
 MEILISEARCH_URL=http://meilisearch:7700
 MEILISEARCH_INDEX_NAME=courses
 
@@ -57,10 +59,17 @@ ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=your-admin-password-here
 
 # Database (optional PostgreSQL)
-DATABASE_URL=
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=change-this-postgres-password
+POSTGRES_DB=course_db
+DATABASE_URL=postgresql://postgres:change-this-postgres-password@postgres:5432/course_db
 
 # Resources
 RESOURCES_PATH=/app/Resources
+
+# Frontend/API
+VITE_API_BASE_URL=/api
+CORS_ORIGINS=*
 EOF
 
 echo ""
@@ -72,12 +81,12 @@ echo ""
 echo "2. Configure GitHub Secrets:"
 echo "   - EC2_HOST: your EC2 public IP"
 echo "   - EC2_USER: ubuntu (or your username)"
-echo "   - EC2_PRIVATE_KEY: your SSH private key"
+echo "   - EC2_SSH_KEY: your SSH private key"
 echo "   - SLACK_WEBHOOK: (optional) for notifications"
 echo ""
-echo "3. Create 'Production' branch in GitHub"
-echo "4. Push code to Production branch to trigger deployment"
+echo "3. Create 'production' branch in GitHub"
+echo "4. Push code to production branch to trigger deployment"
 echo ""
 echo "5. Start services manually (first time):"
 echo "   cd $DEPLOY_DIR"
-echo "   docker-compose up -d"
+echo "   docker compose --env-file .env -f docker-compose.prod.yml up -d"

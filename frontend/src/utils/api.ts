@@ -1,6 +1,6 @@
 import type { ChatResponse, ChatThreadDetail, ChatThreadSummary, Hit, SearchSuggestion } from '../ui/types'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '').replace(/\/api$/, '')
 
 export class ApiError extends Error {
   status: number

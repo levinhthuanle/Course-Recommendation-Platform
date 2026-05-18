@@ -1,9 +1,11 @@
-name: CI/CD — Build, Push to GHCR and Deploy to EC2
+name: CI/CD - Build, Push to GHCR and Deploy to EC2
 
 on:
   push:
     branches:
       - production
+    tags:
+      - "v*"
 
 permissions:
   contents: read
@@ -40,6 +42,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolve image tags
+        id: image-tags
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            image_tag="${GITHUB_REF_NAME}"
+          else
+            image_tag="latest"
+          fi
+
+          echo "image_tag=${image_tag}" >> "$GITHUB_OUTPUT"
+          echo "sha_tag=${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
       - name: Build and push backend deps image
         uses: docker/build-push-action@v4
         with:
@@ -48,8 +63,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.IMAGE_PREFIX }}/backend-deps:latest
-            ${{ env.IMAGE_PREFIX }}/backend-deps:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/backend-deps:${{ steps.image-tags.outputs.image_tag }}
+            ${{ env.IMAGE_PREFIX }}/backend-deps:${{ steps.image-tags.outputs.sha_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -62,8 +77,8 @@ jobs:
           pull: true
           push: true
           tags: |
-            ${{ env.IMAGE_PREFIX }}/course-backend:latest
-            ${{ env.IMAGE_PREFIX }}/course-backend:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/course-backend:${{ steps.image-tags.outputs.image_tag }}
+            ${{ env.IMAGE_PREFIX }}/course-backend:${{ steps.image-tags.outputs.sha_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -75,8 +90,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ env.IMAGE_PREFIX }}/course-frontend:latest
-            ${{ env.IMAGE_PREFIX }}/course-frontend:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/course-frontend:${{ steps.image-tags.outputs.image_tag }}
+            ${{ env.IMAGE_PREFIX }}/course-frontend:${{ steps.image-tags.outputs.sha_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -97,6 +112,14 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
+            DEPLOY_DIR="${{ env.DEPLOY_DIR }}"
+            REF_TYPE="${{ github.ref_type }}"
+            REF_NAME="${{ github.ref_name }}"
+            IMAGE_TAG="latest"
+            if [ "$REF_TYPE" = "tag" ]; then
+              IMAGE_TAG="$REF_NAME"
+            fi
+
             if [ ! -d "$DEPLOY_DIR" ]; then
               echo "Deployment directory not found: $DEPLOY_DIR"
               echo "Run scripts/ec2-setup.sh once on the EC2 host to create it and clone the repo."
@@ -104,19 +127,27 @@ jobs:
             fi
 
             cd "$DEPLOY_DIR" || exit 1
+            if [ "$REF_TYPE" = "tag" ]; then
+              git fetch --tags origin
+              git checkout "$REF_NAME"
+            else
+              git fetch origin "$REF_NAME"
+              git checkout "$REF_NAME"
+              git pull --ff-only origin "$REF_NAME"
+            fi
 
-            # Pull dependency image as a verification step
-            docker pull ${{ env.IMAGE_PREFIX }}/backend-deps:latest
+            if [ ! -f .env ]; then
+              echo "Missing $DEPLOY_DIR/.env. Create it from .env.example and set production secrets."
+              exit 1
+            fi
 
-            # Ensure we use the production compose file
-            docker compose pull
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            docker pull ${{ env.IMAGE_PREFIX }}/backend-deps:$IMAGE_TAG
+            IMAGE_PREFIX="${{ env.IMAGE_PREFIX }}" IMAGE_TAG="$IMAGE_TAG" docker compose --env-file .env -f docker-compose.prod.yml pull
+            IMAGE_PREFIX="${{ env.IMAGE_PREFIX }}" IMAGE_TAG="$IMAGE_TAG" docker compose --env-file .env -f docker-compose.prod.yml up -d
 
-            # Start with no local builds — rely on prebuilt images
-            docker compose up -d
-
-            # Health check (adjust endpoint/port as needed)
             sleep 8
-            curl -f http://localhost:8000/health || exit 1
+            curl -f http://localhost/api/v1/health || exit 1
 
             echo "Production deploy finished"
 
