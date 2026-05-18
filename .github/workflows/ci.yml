@@ -31,10 +31,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r Requirements.txt
+          python -m pip install pytest
 
       - name: Run backend tests
         run: |
-          pytest -v --tb=short tests/backend tests/integration
+          python -m pytest -v --tb=short tests/backend tests/integration
 
       - name: Upload test results
         if: always()
@@ -94,6 +95,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r Requirements.txt
+          python -m pip install pytest
 
       - name: Run linting (optional - install pylint if needed)
         run: |
@@ -115,11 +117,23 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
+      - name: Build backend dependencies image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: Dockerfile.deps
+          tags: course-backend-deps:latest
+          load: true
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: Build backend Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
-          dockerfile: Dockerfile
+          file: Dockerfile
+          load: true
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -128,7 +142,8 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: ./frontend
-          dockerfile: ./frontend/Dockerfile
+          file: ./frontend/Dockerfile
+          load: true
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
