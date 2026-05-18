@@ -195,6 +195,17 @@ The API will be available at:
 - Interactive Docs: http://localhost:8000/docs
 - ReDoc: http://localhost:8000/redoc
 
+## 🐳 Docker Compose Environments
+
+Use the shared base file with a single environment overlay:
+
+```bash
+docker compose --env-file .env.development -f docker-compose.yml -f docker-compose.dev.yml up --build
+docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+The development stack keeps bind mounts and localhost ports for fast iteration. The production stack removes source mounts, keeps Postgres and Meilisearch private, and builds the frontend with `/api` as its base URL so host nginx can proxy `/api` to the backend.
+
 ## 📁 Project Structure
 
 ```
@@ -221,11 +232,16 @@ Project/
 │       ├── __init__.py
 │       └── text_processing.py   # Text cleaning utilities
 ├── Resources/                    # Place PDF syllabus files here
-├── .env                         # Environment variables (create from .env.example)
-├── .env.example                 # Environment variables template
+├── .env                         # Legacy local environment file
+├── .env.development             # Local development environment file
+├── .env.production              # Production environment file
 ├── .gitignore                   # Git ignore rules
 ├── docker-compose.yml           # Docker Compose configuration
+├── docker-compose.dev.yml       # Development compose overrides
+├── docker-compose.prod.yml      # Production compose overrides
 ├── Requirements.txt             # Python dependencies
+├── nginx/
+│   └── ec2.conf                 # Host nginx reverse-proxy example
 └── README.md                    # This file
 ```
 
