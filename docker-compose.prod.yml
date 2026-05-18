@@ -1,20 +1,70 @@
-services:
-  meilisearch:
-    environment:
-      MEILI_ENV: production
+version: '3.8'
 
+services:
   backend:
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --proxy-headers
-    environment:
-      DEBUG: "false"
-      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/course_db}
+    image: ghcr.io/levinhthuanle/course-backend:latest
+    env_file:
+      - .env.production
     ports:
-      - "127.0.0.1:8000:8000"
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - meilisearch
+    restart: unless-stopped
+    networks:
+      - app-network
 
   frontend:
-    build:
-      target: prod
-      args:
-        VITE_API_BASE_URL: /api
+    image: ghcr.io/levinhthuanle/course-frontend:latest
     ports:
-      - "127.0.0.1:3000:3000"
+      - "3000:80"
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-course_db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    environment:
+      MEILI_NO_ANALYTICS: 'true'
+    ports:
+      - "7700:7700"
+    volumes:
+      - meili_data:/meili-data
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:stable
+    volumes:
+      - ./nginx/ec2.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    networks:
+      - app-network
+
+volumes:
+  pgdata:
+  meili_data:
+
+networks:
+  app-network:
+    driver: bridge
+
