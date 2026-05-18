@@ -24,8 +24,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-!frontend/src/ui/lib/
-!frontend/src/ui/lib/**
 
 # Virtual environments
 .venv/
