@@ -129,14 +129,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build backend Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: Dockerfile
-          load: true
-          push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+        run: docker build -f Dockerfile -t course-backend:latest .
 
       - name: Build frontend Docker image
         uses: docker/build-push-action@v4
