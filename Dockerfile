@@ -1,7 +1,7 @@
 # Dockerfile - Application only (fast rebuild!)
 # Uses pre-built dependencies image
 
-FROM course-backend-deps:latest
+FROM ghcr.io/levinhthuanle/backend-deps:latest
 
 WORKDIR /app
 
