@@ -5,6 +5,7 @@ import { useAuth } from './hooks/useAuth'
 import { useChat } from './hooks/useChat'
 import { useCourseModal } from './hooks/useCourseModal'
 import { useDocumentPreferences } from './hooks/useDocumentPreferences'
+import { useFavorites } from './hooks/useFavorites'
 import { useSearch } from './hooks/useSearch'
 import { translations } from './i18n/translations'
 import { AppShell } from './layout/AppShell'
@@ -24,6 +25,7 @@ export default function App() {
   const search = useSearch()
   const courseModal = useCourseModal()
   const chat = useChat(auth.currentUser)
+  const favorites = useFavorites(auth.currentUser)
   const admin = useAdminDashboard(mode, auth.currentUser)
 
   useDocumentPreferences(theme)
@@ -37,6 +39,15 @@ export default function App() {
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
+  }
+
+  const askAboutFavorites = () => {
+    if (!favorites.favorites.length) return
+    const courseList = favorites.favorites
+      .map((course) => `${course.course_code || 'Course'} - ${course.title || 'Untitled course'}`)
+      .join('\n')
+    setMode('chat')
+    void chat.submitChat(`Please advise me based on these saved courses:\n${courseList}\n\nCompare them and suggest a good learning plan.`)
   }
 
   return (
@@ -74,12 +85,25 @@ export default function App() {
             query={search.query}
             results={search.results}
             semanticRatio={search.semanticRatio}
+            suggestions={search.suggestions}
+            suggestionsLoading={search.suggestionsLoading}
+            favorites={favorites.favorites}
+            favoritesLoading={favorites.favoritesLoading}
+            favoritesError={favorites.favoritesError}
+            favoriteIds={favorites.favoriteIds}
             t={t}
+            onAskFavorites={askAboutFavorites}
             onCourseClick={courseModal.openCourse}
             onLimitChange={search.setLimit}
             onQueryChange={search.setQuery}
             onSearch={() => search.search()}
             onSemanticRatioChange={search.setSemanticRatio}
+            onSuggestionSelect={(value) => {
+              search.setQuery(value)
+              void search.search(value)
+            }}
+            onToggleFavorite={favorites.toggleFavorite}
+            onRemoveFavorite={favorites.removeFavorite}
           />
         ) : mode === 'admin' ? (
           <AdminPage

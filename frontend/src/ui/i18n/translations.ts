@@ -81,7 +81,14 @@ export const translations = {
   deleteConfirm: 'Delete this file and rebuild the index?',
   clearIndex: 'Clear index',
   clearIndexConfirm: 'Remove indexed data for this file? (PDF will stay)',
-  authLoading: 'Working...'
+  authLoading: 'Working...',
+  savedCourses: 'Saved Courses',
+  savedCoursesCount: 'saved',
+  loadingFavorites: 'Loading saved courses...',
+  saveCourse: 'Save',
+  savedCourse: 'Saved',
+  removeSavedCourse: 'Remove saved course',
+  askSavedCourses: 'Ask AI'
 } as const
 
 export type Translation = typeof translations

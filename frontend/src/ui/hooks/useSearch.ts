@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../utils/api'
 import { cleanText, isValidResult } from '../lib/text'
-import type { Hit } from '../types'
+import type { Hit, SearchSuggestion } from '../types'
 
 export function useSearch() {
   const [query, setQuery] = useState('')
@@ -10,8 +10,36 @@ export function useSearch() {
   const [error, setError] = useState<string | null>(null)
   const [limit, setLimit] = useState(20)
   const [semanticRatio, setSemanticRatio] = useState(0.5)
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
 
   const canSearch = useMemo(() => query.trim().length > 0, [query])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      const q = query.trim()
+      if (!q) {
+        setSuggestions([])
+        return
+      }
+
+      setSuggestionsLoading(true)
+      try {
+        const data = await api.suggestions(q)
+        if (!controller.signal.aborted) setSuggestions(data.suggestions || [])
+      } catch {
+        if (!controller.signal.aborted) setSuggestions([])
+      } finally {
+        if (!controller.signal.aborted) setSuggestionsLoading(false)
+      }
+    }, 180)
+
+    return () => {
+      controller.abort()
+      window.clearTimeout(timer)
+    }
+  }, [query])
 
   const search = async (q = query) => {
     if (!q.trim()) return
@@ -46,6 +74,8 @@ export function useSearch() {
     setLimit,
     semanticRatio,
     setSemanticRatio,
+    suggestions,
+    suggestionsLoading,
     canSearch,
     search
   }

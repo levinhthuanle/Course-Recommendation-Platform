@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { SearchSuggestion } from '../types'
 
 type Props = {
   value: string
@@ -13,6 +14,9 @@ type Props = {
   semanticRatio?: number
   onSemanticRatioChange?: (v: number) => void
   showAdvanced?: boolean
+  suggestions?: SearchSuggestion[]
+  suggestionsLoading?: boolean
+  onSuggestionSelect?: (value: string) => void
 }
 
 export function SearchBar({ 
@@ -26,19 +30,64 @@ export function SearchBar({
   onLimitChange,
   semanticRatio = 0.5,
   onSemanticRatioChange,
-  showAdvanced = false
+  showAdvanced = false,
+  suggestions = [],
+  suggestionsLoading = false,
+  onSuggestionSelect
 }: Props) {
   const [showOptions, setShowOptions] = useState(false)
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false)
+  const hasSuggestions = suggestionsOpen && (suggestions.length > 0 || suggestionsLoading)
+
+  const selectSuggestion = (value: string) => {
+    onSuggestionSelect?.(value)
+    setSuggestionsOpen(false)
+  }
 
   return (
     <div className="search-container">
       <div className="search">
-        <input
-          placeholder={placeholder}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && onSearch()}
-        />
+        <div className="searchInputWrap">
+          <input
+            placeholder={placeholder}
+            value={value}
+            onChange={(e) => {
+              onChange(e.target.value)
+              setSuggestionsOpen(true)
+            }}
+            onFocus={() => setSuggestionsOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                setSuggestionsOpen(false)
+                onSearch()
+              }
+              if (e.key === 'Escape') setSuggestionsOpen(false)
+            }}
+          />
+          {hasSuggestions && (
+            <div className="suggestionsMenu">
+              {suggestionsLoading ? (
+                <div className="suggestionItem muted">Loading suggestions...</div>
+              ) : (
+                suggestions.map((item) => (
+                  <button
+                    key={`${item.type}:${item.value}`}
+                    className="suggestionItem"
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => selectSuggestion(item.value)}
+                  >
+                    <span className={`suggestionType ${item.type}`}>{item.type === 'popular' ? 'Top' : item.type === 'course_code' ? 'Code' : 'Title'}</span>
+                    <span className="suggestionText">
+                      <strong>{item.label}</strong>
+                      {item.meta && <small>{item.meta}</small>}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
         <button onClick={onSearch} disabled={disabled}>{buttonText}</button>
         {showAdvanced && (
           <button 

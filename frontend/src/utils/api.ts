@@ -1,4 +1,4 @@
-import type { ChatResponse, ChatThreadDetail, ChatThreadSummary } from '../ui/types'
+import type { ChatResponse, ChatThreadDetail, ChatThreadSummary, Hit, SearchSuggestion } from '../ui/types'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
 
@@ -61,6 +61,16 @@ export const api = {
   me: () => fetchJson('/api/v1/auth/me'),
   search: (q: string, limit = 20, semanticRatio = 0.5) => 
     fetchJson(`/api/v1/search?q=${encodeURIComponent(q)}&limit=${limit}&semantic_ratio=${semanticRatio}`),
+  suggestions: (q: string, limit = 8) =>
+    fetchJson(`/api/v1/suggestions?q=${encodeURIComponent(q)}&limit=${limit}`) as Promise<{
+      query: string
+      suggestions: SearchSuggestion[]
+    }>,
+  listFavorites: () => fetchJson('/api/v1/favorites') as Promise<Hit[]>,
+  saveFavorite: (courseId: string) =>
+    fetchJson(`/api/v1/favorites/${encodeURIComponent(courseId)}`, { method: 'POST' }) as Promise<Hit>,
+  removeFavorite: (courseId: string) =>
+    fetchJson(`/api/v1/favorites/${encodeURIComponent(courseId)}`, { method: 'DELETE' }),
   ingest: (force = false) => fetchJson(`/api/v1/ingest?force_reindex=${force}`, { method: 'POST' }),
   listAdminFiles: () => fetchJson('/api/v1/admin/files'),
   getAdminStats: () => fetchJson('/api/v1/admin/stats'),

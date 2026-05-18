@@ -5,6 +5,13 @@ export type Hit = {
   summary?: string
 }
 
+export type SearchSuggestion = {
+  value: string
+  label: string
+  type: 'course_code' | 'title' | 'popular'
+  meta?: string
+}
+
 export type CourseDetail = {
   id: string
   course_code: string
