@@ -33,8 +33,6 @@ A full-stack course discovery system that turns syllabus PDFs into searchable co
   <img src="Figures/SystemArchitect.png" alt="System architecture" width="860" />
 </p>
 
-At a high level, users interact with a React frontend served behind nginx. The FastAPI backend handles authentication, search, ingestion, chat, and admin APIs. Course documents are indexed in Meilisearch, while PostgreSQL stores users, favorites, chat history, and analytics.
-
 ## Tech Stack
 
 | Layer | Technologies |
